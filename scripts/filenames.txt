@@ -1,0 +1,39 @@
+/tank/data/FRBs/R3/20200322/iquv/CB00/numpyarr/R3_mjd58930.472321_dedisp.npy /tank/data/FRBs/R3/20200322/iquv/CB00/polcal/xy_phase.npy 58930.4723356481
+/tank/data/FRBs/R3/20200323/snippet/CB00_10.0sec_dm0_t04354_sb35_tab00.fil 58931.5126443287 5.00393216
+/tank/data/FRBs/R3/20200323/snippet/CB00_10.0sec_dm0_t07599_sb35_tab00.fil 58931.5502002314 5.0131072
+/tank/data/FRBs/R3/20200323/snippet/CB00_10.0sec_dm0_t09402_sb35_tab00.fil 58931.5710694444 5.03801088
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.358687_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.3587134259
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.388874_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.3889011574
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.446158_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.4461822916
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.466709_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.4667442129
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.477222_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.4772537037
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.528896_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.5289273148
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.628403_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.6284186342
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.632954_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.6329756944
+/tank/data/FRBs/R3/20200511/CB00/iquv/numpyarr/R3_mjd58980.661873_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58980.6618881944
+/tank/data/FRBs/R3/20200512/CB00/iquv/numpyarr/R3_mjd58981.384374_dedisp.npy /tank/data/FRBs/R3/20200512/CB00/iquv/polcal/xy_phase.npy 58981.3843890046
+/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/snippet/all/CB00_10.0sec_dm0_t01612_sb-1_tab00.fil 58996.1579885416 4.9967232
+/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/iquv/numpyarr/R3_mjd58996.194985_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.1950113425
+#/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/snippet/all/CB00_10.0sec_dm0_t04810_sb-1_tab00.fil 58996.1949996
+/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/iquv/numpyarr/R3_mjd58996.241942_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.2419583333
+#/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/snippet/all/CB00_10.0sec_dm0_t08867_sb-1_tab00.fil 58996.2419583333
+/tank/data/FRBs/R3/20200527/2020-05-27-03:20:38.R3/snippet/all/CB00_10.0sec_dm0_t011658_sb-1_tab00.fil 58996.2742673611 4.96919808
+/tank/data/FRBs/R3/20200527/2020-05-27-07:21:12.R3/iquv/numpyarr/R3_mjd58996.347941_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.3479666666
+#/tank/data/FRBs/R3/20200527/2020-05-27-07:21:12.R3/snippet/all/CB00_10.0sec_dm0_t03592_sb-1_tab00.fil 58996.3479666666
+/tank/data/FRBs/R3/20200527/2020-05-27-07:21:12.R3/iquv/numpyarr/R3_mjd58996.365186_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.3652184027
+#/tank/data/FRBs/R3/20200527/2020-05-27-07:21:12.R3/snippet/all/CB00_10.0sec_dm0_t05082_sb-1_tab00.fil 58996.3652184027
+/tank/data/FRBs/R3/20200527/2020-05-27-10:52:06.R3/iquv/numpyarr/R3_mjd58996.483105_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.4831258101
+#/tank/data/FRBs/R3/20200527/2020-05-27-10:52:06.R3/snippet/all/CB00_10.0sec_dm0_t02616_sb-1_tab00.fil 58996.4831258101
+/tank/data/FRBs/R3/20200527/2020-05-27-13:37:55.R3/iquv/numpyarr/R3_mjd58996.607761_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58996.6077791666
+#/tank/data/FRBs/R3/20200527/2020-05-27-13:37:55.R3/snippet/all/CB00_10.0sec_dm0_t03437_sb-1_tab00.fil 58996.6077791666
+/tank/data/FRBs/R3/20200527/2020-05-27-13:37:55.R3/snippet/all/CB00_10.0sec_dm0_t04390_sb-1_tab00.fil 58996.6188111111 5.0147456
+/tank/data/FRBs/R3/20200528/2020-05-28-03:45:00.R3/iquv/numpyarr/R3_mjd58997.157874_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58997.2195600925
+#/tank/data/FRBs/R3/20200528/2020-05-28-03:45:00.R3/snippet/all/CB00_10.0sec_dm0_t0141_sb-1_tab00.fil 58997.2195600925
+/tank/data/FRBs/R3/20200528/2020-05-28-05:13:48.R3/iquv/numpyarr/R3_mjd58997.241786_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58997.2418024305
+#/tank/data/FRBs/R3/20200528/2020-05-28-05:13:48.R3/snippet/all/CB00_10.0sec_dm0_t02063_sb-1_tab00.fil 58997.2418024305
+/tank/data/FRBs/R3/20200528/2020-05-28-05:13:48.R3/iquv/numpyarr/R3_mjd58997.272625_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58997.2726502314
+#/tank/data/FRBs/R3/20200528/2020-05-28-05:13:48.R3/snippet/all/CB00_10.0sec_dm0_t04729_sb-1_tab00.fil 58997.2726502314
+/tank/data/FRBs/R3/20200528/2020-05-28-08:19:28.R3/iquv/numpyarr/R3_mjd58997.360956_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58997.3609726851
+#/tank/data/FRBs/R3/20200528/2020-05-28-08:19:28.R3/snippet/all/CB00_10.0sec_dm0_t01220_sb-1_tab00.fil 58997.3609726851
+/tank/data/FRBs/R3/20200528/2020-05-28-08:19:28.R3/iquv/numpyarr/R3_mjd58997.391320_dedisp.npy /tank/data/FRBs/R3/20200527/polcal/xy_phase.npy 58997.3913371527
+#/tank/data/FRBs/R3/20200528/2020-05-28-08:19:28.R3/snippet/all/CB00_10.0sec_dm0_t03843_sb-1_tab00.fil 58997.3913371527
