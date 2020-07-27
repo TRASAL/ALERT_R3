@@ -35,14 +35,7 @@ def get_pa_iquv(d, nfreq=1536, ntime=1e4,
     freq = np.arange(fmin, fmax, bw/nfreq)
     xyphase = np.load(fn_xyphase[ii])
 
-    # Bandpass correction
-    #d /= bandpass[None, :, None]
-
     # Frequency mask
-    #off_spectrum = d[0, :, :].mean(1) - d[0, :, 4900:5100].mean(1)
-    #f_mask = np.where(np.abs(off_spectrum) > np.std(frb_spectrum, axis=-1))[0]
-    #f_mask = f_mask[np.where(f_mask<400)]
-    #f_mask = np.arange(np.min(f_mask)-10, np.max(f_mask)+10)
     f_mask = range(1532,1536)
     snr_max, width_max = SNRtools.calc_snr_matchedfilter(d[0].mean(0), widths=range(250))
     #get channel weights
@@ -89,16 +82,7 @@ def get_pa_iquv(d, nfreq=1536, ntime=1e4,
     weights_f = 1
     PA = np.angle(np.mean(P*weights_f,0),deg=True)
 
-#    PA = np.mean(np.angle(P,deg=True),0)
-#    PA = np.angle(np.mean(D[1]+1j*D[2],0), deg=True) # degrees
-
     freqArr_Hz = pol.freq_arr*1e6
-    # outFilePath = 'out%d.dat' % ii
-    # np.savetxt(outFilePath,
-    #         np.column_stack((freqArr_Hz, SS[0], SS[1], SS[2],
-    #         np.std(d[0,:,:4500],axis=1), np.std(d[1,:,:4500],axis=1),
-    #         np.std(d[2,:,:4500],axis=1))))
-    #PA[np.where(PA<0)[0]] += 360
 
     # Temporal mask. index in mask allowed for PA calculation
     std_I = np.std(d[0, ..., 4500:5500].mean(0))
@@ -151,29 +135,6 @@ def get_i(ff, sb_generator, bscrunch=2, fscrunch=2):
     tsamp = time_res * 1000 # ms
     tval = np.arange(-ntime_plot/2, ntime_plot/2) * tsamp * bscrunch
     tcen = tval[np.argmax(pulse)] * u.ms # ms
-    #print(tcen)
-    # t0 += tcen.to('s').value
-    #mjd += tcen.to('d').value
-
-    # Getting pulse data from corrected time
-    # full_dm_arr_downsamp, full_freq_arr_downsamp, time_res, params = triggers.proc_trigger(
-    #         f, dm, t0, -1,
-    #         ndm=32, mk_plot=False, downsamp=bscrunch,
-    #         beamno=CB, fn_mask=None, nfreq_plot=nfreq_plot,
-    #         ntime_plot=nsamp,
-    #         cmap='viridis', cand_no=1, multiproc=False,
-    #         rficlean=True, snr_comparison=-1,
-    #         outdir='./data', sig_thresh_local=0.0,
-    #         subtract_zerodm=False,
-    #         threshold_time=3.25, threshold_frequency=2.75,
-    #         bin_size=32, n_iter_time=3,
-    #         n_iter_frequency=3,
-    #         clean_type='perchannel', freq=1370,
-    #         sb_generator=sb_generator, sb=35)
-    #
-    # D = full_freq_arr_downsamp
-    # tsamp = time_res * 1000
-    # tval = np.arange(-nsamp/2, nsamp/2) * tsamp
 
     print(mjds[ii], t0s[ii])
 
@@ -202,12 +163,6 @@ def iquv_plotter(D, PA, tval, gss, ii, weights_f, t_mask,
     ax2.yaxis.set_major_locator(MultipleLocator(90))
     ax2.set_ylim(-190,190)
     ax2.grid(b=True, axis='y', color='k', alpha=0.1)
-
-
-    # ax3 = fig.add_subplot(gss[0, 1])
-    # #ax3.plot(D[0, ..., mask].mean(0), color=colors[0], lw=1)
-    # #ax3.plot(D[0].mean(0), color=colors[0], lw=1)
-    # ax3.plot(freqArr_Hz[4::8]*1e-6, frb_spectrum, color=colors[0], lw=1)
 
     if args.waterfall:
         waterfall = rebin(D[0], [fscrunch,bscrunch])
@@ -309,12 +264,6 @@ bscrunch = args.bscrunch
 
 # Defining numpy files to plot
 datadir = '/tank/data/FRBs/R3/'
-# fl_20200322 = glob.glob(datadir+'20200322/iquv/CB00/numpyarr/*dedisp*')
-# fl_2020051x = glob.glob(datadir+'2020051*/CB00/iquv/numpyarr/*mjd*dedisp*')
-# fl_2020052x = glob.glob(datadir+'2020052*/*/iquv/numpyarr/*dedisp*')
-# fl = fl_20200322 + fl_2020051x + fl_2020052x #+ fl_crabtest
-# fl.sort()
-# fl = np.unique(fl)
 fname = '/home/arts/pastor/R3/plots/filenames.txt'
 file_info = text_file = open(fname, "r")
 lines = text_file.readlines()
@@ -334,14 +283,6 @@ for line in lines:
             t0s.append(float(cols[2]))
 
 file_info.close()
-
-# Defining phase calibrator
-# fn_xyphase = [datadir+'20200322/iquv/CB00/polcal/xy_phase.npy'] \
-#              * len(fl_20200322) \
-#              + [datadir+'20200512/CB00/iquv/polcal/xy_phase.npy'] \
-#              * len(fl_2020051x) \
-#              + [datadir+'20200527/polcal/xy_phase.npy'] \
-#              * len(fl_2020052x)#+len(fl_crabtest))
 
 # Defining bandpass
 bandpass = np.load('/tank/data/FRBs/FRB200419/20200419/iquv/CB32/polcal/bandpass.npy')
