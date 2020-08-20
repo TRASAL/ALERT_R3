@@ -296,15 +296,15 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
     # DEFINING COLORS
     cm = plt.cm.get_cmap('Spectral_r')
     burst_hist_colors = []
-    obs_hist_colors = []
+    obs_hist_colors = {}
     for i,k in enumerate(obs_duration_dict.keys()):
         freq = np.log10(fcen_dict[k])
-        c = (np.log10(max_freq)-freq)/(np.log10(max_freq)-np.log10(min_freq))
+        col = (np.log10(max_freq)-freq)/(np.log10(max_freq)-np.log10(min_freq))
         # c = i/len(obs_duration_dict.keys())
-        color = cm(c)
-        if k in burst_dict.keys():
-            burst_hist_colors.append(color)
-        obs_hist_colors.append(color)
+        color = cm(col)
+        # if k in burst_dict.keys():
+        #     burst_hist_colors.append(color)
+        obs_hist_colors[k] = color
 
     # PLOTTING
     fig = plt.figure(figsize=(7,7))
@@ -313,7 +313,7 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
     ax1 = fig.add_subplot(gs[0, 0]) #ax[0]
     for i,k in enumerate(burst_dict.keys()):
         ax1.scatter(burst_dict[k], snr_dict[k],
-                color=burst_hist_colors[i], label=k, marker='x')
+                color=obs_hist_colors[k], label=k, marker='x')
 
     max_snr = max([m for k in snr_dict.keys()
             for m in snr_dict[k]])*1.1
@@ -332,7 +332,7 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
             obs = Rectangle((start,fmin_dict[k]), obs_duration_dict[k][j]/24,
                     fmax_dict[k]-fmin_dict[k])
             obs_patches.append(obs)
-        pc = PatchCollection(obs_patches, facecolor=obs_hist_colors[i],
+        pc = PatchCollection(obs_patches, facecolor=obs_hist_colors[k],
                 alpha=0.7, edgecolor=obs_hist_colors[i], label=k)
         ax2.add_collection(pc)
 
