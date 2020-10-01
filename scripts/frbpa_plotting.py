@@ -115,7 +115,7 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     duration_per_phase_tot = np.empty(nbins)
     for k in obs_startmjds_dict.keys():
         obs_start_phases_dict[k] = get_phase(np.array(obs_startmjds_dict[k]),
-                                             period)
+                                             period, ref_mjd=ref_mjd)
         durations = np.array(obs_duration_dict[k])
         start_phases = obs_start_phases_dict[k]
 
@@ -139,8 +139,9 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     duration_hist = np.array(duration_hist)
     bin_mids = (bin_edges_obs[:-1] + bin_edges_obs[1:])/2
     phase_lst = []
-    for k in burst_dict.keys():
-        phase_lst.append(list(get_phase(np.array(burst_dict[k]), period)))
+    for i,k in enumerate(burst_dict.keys()):
+        phase_lst.append(list(get_phase(np.array(burst_dict[k]), period,
+                ref_mjd=ref_mjd)))
         burst_per_phase_dict[k], _ = np.histogram(phase_lst[-1],
                 bins=nbins, range=(0,1))
 
@@ -148,11 +149,20 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     phase_tot.sort()
     burst_tot, _ = np.histogram(phase_tot, bins=nbins, range=(0,1))
 
+    off = np.where(burst_per_phase_dict['ARTS'] == 0)[0]
+    on = np.where(burst_per_phase_dict['ARTS'] > 0)[0]
+    print("Hours ARTS observed during on phase: {:.2f}".format(
+            np.sum(duration_per_phase_dict['ARTS'][on])))
+    print("Hours ARTS observed during off phase: {:.2f}".format(
+            np.sum(duration_per_phase_dict['ARTS'][off])))
+
     # DEFINING COLORS
     cm = plt.cm.get_cmap('Spectral_r')
 
     burst_hist_colors = []
     obs_hist_colors = {}
+    if 'GMRT650' in obs_duration_dict.keys():
+        fcen_dict['GMRT650'] = 1000
     for i,k in enumerate(obs_duration_dict.keys()):
         freq = np.log10(fcen_dict[k])
         col = (np.log10(max_freq)-freq)/(np.log10(max_freq)-np.log10(min_freq))
@@ -166,10 +176,11 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
             'middle': cm((np.log10(max_freq)-np.log10(500))/(np.log10(max_freq)-np.log10(min_freq))),
             'low': cm((np.log10(max_freq)-np.log10(300))/(np.log10(max_freq)-np.log10(min_freq)))
             }
-    print(rate_colors)
+    if 'GMRT650' in obs_duration_dict.keys():
+        fcen_dict['GMRT650'] = 650
 
     # PLOTTING
-    fig, ax = plt.subplots(2, 1, sharex=True, figsize=(7,7),
+    fig, ax = plt.subplots(2, 1, sharex=True, figsize=(9,7),
             gridspec_kw={'height_ratios': [1,1]})
     ax1 = ax[0]
     ax1.hist(phase_lst, bins=bin_edges_obs, stacked=True, density=False, label=burst_dict.keys(),
@@ -231,15 +242,19 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     plt.tight_layout()
 
     if save:
-        plt.savefig('./burst_obs_phase_hist.png', pad_inches=0, bbox_inches='tight')
-        plt.savefig('./burst_obs_phase_hist.pdf', pad_inches=0, bbox_inches='tight')
+        print('Plot saved: ./burst_obs_phase_hist.png')
+        plt.savefig('./burst_obs_phase_hist.png', pad_inches=0,
+                bbox_inches='tight', dpi=200)
+        plt.savefig('./burst_obs_phase_hist.pdf', pad_inches=0,
+                bbox_inches='tight', dpi=200)
     if show:
         plt.show()
 
     # SAVING COUNTS, OBS_DURATION AND PHASE BIN
     if log:
         print("Writing log")
-        with open('./counts_per_phase.txt', 'w') as f:
+        dir_out = '/home/ines/Documents/projects/R3/periodicity/burst_phases/'
+        with open(dir_out+'counts_per_phase_p{:.2f}.txt'.format(period), 'w') as f:
             f.write("# phase_bin counts chime_counts arts_counts lofar_counts obs_duration chime_duration arts_duration lofar_duration\n")
             for i in range(nbins):
                 f.write("{:.3f} {} {} {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
@@ -252,8 +267,8 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
                         duration_per_phase_dict["ARTS"][i],
                         duration_per_phase_dict["LOFAR"][i]))
         for i,k in enumerate(burst_dict.keys()):
-            np.save('./phase_{}_p{}_f{}'.format(k, period, fcen_dict[k]),
-                    [burst_dict[k], phase_lst[i]])
+            np.save(dir_out + 'phase_{}_p{:.2f}_f{:.1f}'.format(k, period,
+                    fcen_dict[k]), [burst_dict[k], phase_lst[i]])
 
 def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
         show=False, max_freq=2500, min_freq=200):
@@ -276,8 +291,8 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
     t0 = t+((period/2)*u.day)
     tf = datetime.datetime.now()
 
-    t0_low = t+((period/2)*u.day) - (2.6 * u.day)
-    t0_high = t+((period/2)*u.day) + (2.6 * u.day)
+    t0_low = t+((period/2)*u.day) - (0.16 * period * u.day)
+    t0_high = t+((period/2)*u.day) + (0.16 * period * u.day)
 
     df_period = [t0]
     df_duty_low = [t0_low]
@@ -308,12 +323,13 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
 
     # PLOTTING
     fig = plt.figure(figsize=(7,7))
-    gs = gridspec.GridSpec(2,1, hspace=0., height_ratios=[2,1])
+    gs = gridspec.GridSpec(2,1, wspace=0.01, height_ratios=[3,1])
 
     ax1 = fig.add_subplot(gs[0, 0]) #ax[0]
     for i,k in enumerate(burst_dict.keys()):
         ax1.scatter(burst_dict[k], snr_dict[k],
-                color=obs_hist_colors[k], label=k, marker='x')
+                color=obs_hist_colors[k], label=k, marker='o', edgecolor='k',
+                linewidth=0.5, zorder=10, s=12)
 
     max_snr = max([m for k in snr_dict.keys()
             for m in snr_dict[k]])*1.1
@@ -333,7 +349,7 @@ def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
                     fmax_dict[k]-fmin_dict[k])
             obs_patches.append(obs)
         pc = PatchCollection(obs_patches, facecolor=obs_hist_colors[k],
-                alpha=0.7, edgecolor=obs_hist_colors[i], label=k)
+                alpha=0.7, edgecolor=obs_hist_colors[k], label=k)
         ax2.add_collection(pc)
 
     max_mjdstart = max([m for k in obs_startmjds_dict.keys()
@@ -389,8 +405,10 @@ def cycle_phase_plot(data_json, period, ref_mjd=58369.30, save=False,
     obs_start_cycles = {}
     obs_duration_phase = {}
     for k in obs_startmjds_dict.keys():
-        obs_start_phases[k] = get_phase(obs_startmjds_dict[k], period, ref_mjd=ref_mjd)
-        obs_start_cycles[k] = get_cycle(obs_startmjds_dict[k], period, ref_mjd=ref_mjd)
+        obs_start_phases[k] = get_phase(obs_startmjds_dict[k], period,
+                ref_mjd=ref_mjd)
+        obs_start_cycles[k] = get_cycle(obs_startmjds_dict[k], period,
+                ref_mjd=ref_mjd)
         obs_duration_phase[k] = np.array(obs_duration_dict[k])/(24*period)
 
     # Defining duty cycle
@@ -431,9 +449,7 @@ def cycle_phase_plot(data_json, period, ref_mjd=58369.30, save=False,
 
     # PLOTTING
     fig = plt.figure(figsize=(7,7))
-    params = get_params()
-    plt.rcParams.update(params)
-    gs = gridspec.GridSpec(1,1, hspace=0., height_ratios=[1])
+    gs = gridspec.GridSpec(1,1, wspace=0.01, height_ratios=[1])
 
     ax1 = fig.add_subplot(gs[0, 0]) #ax[0]
     for i,k in enumerate(burst_dict.keys()):
@@ -502,7 +518,7 @@ def make_plot_all(data_json, period, ref_mjd=58369.30, nbins=40, save=False,
     duration_per_phase_tot = np.empty(nbins)
     for k in obs_startmjds_dict.keys():
         obs_start_phases_dict[k] = get_phase(np.array(obs_startmjds_dict[k]),
-                                             period)
+                                             period, ref_mjd=ref_mjd)
         durations = np.array(obs_duration_dict[k])
         start_phases = obs_start_phases_dict[k]
 
@@ -527,7 +543,8 @@ def make_plot_all(data_json, period, ref_mjd=58369.30, nbins=40, save=False,
     bin_mids = (bin_edges_obs[:-1] + bin_edges_obs[1:])/2
     phase_lst = []
     for k in burst_dict.keys():
-        phase_lst.append(list(get_phase(np.array(burst_dict[k]), period)))
+        phase_lst.append(list(get_phase(np.array(burst_dict[k]), period,
+                ref_mjd=ref_mjd)))
         burst_per_phase_dict[k], _ = np.histogram(phase_lst[-1],
                 bins=nbins, range=(0,1))
 
@@ -547,8 +564,10 @@ def make_plot_all(data_json, period, ref_mjd=58369.30, nbins=40, save=False,
     obs_start_cycles = {}
     obs_duration_phase = {}
     for k in obs_startmjds_dict.keys():
-        obs_start_phases[k] = get_phase(obs_startmjds_dict[k], period, ref_mjd=ref_mjd)
-        obs_start_cycles[k] = get_cycle(obs_startmjds_dict[k], period, ref_mjd=ref_mjd)
+        obs_start_phases[k] = get_phase(obs_startmjds_dict[k], period,
+                ref_mjd=ref_mjd)
+        obs_start_cycles[k] = get_cycle(obs_startmjds_dict[k], period,
+                ref_mjd=ref_mjd)
         obs_duration_phase[k] = np.array(obs_duration_dict[k])/(24*period)
 
     # DEFINING COLORS
@@ -566,9 +585,7 @@ def make_plot_all(data_json, period, ref_mjd=58369.30, nbins=40, save=False,
 
     # PLOTTING
     fig = plt.figure(figsize=(7,7))
-    params = get_params()
-    plt.rcParams.update(params)
-    gs = gridspec.GridSpec(3,1, hspace=0., height_ratios=[1,2,1])
+    gs = gridspec.GridSpec(3,1, wspace=0.01, height_ratios=[1,2,1])
 
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.hist(phase_lst, bins=bin_edges_obs, stacked=True, density=False, label=burst_dict.keys(),
@@ -633,8 +650,10 @@ def make_plot_all(data_json, period, ref_mjd=58369.30, nbins=40, save=False,
     plt.setp(ax3.get_xticklabels(), visible=False)
 
     if save:
-        plt.savefig('./R3_obs_detections.png', pad_inches=0, bbox_inches='tight')
-        plt.savefig('./R3_obs_detections.pdf', pad_inches=0, bbox_inches='tight')
+        plt.savefig('./R3_obs_detections.png', pad_inches=0,
+                bbox_inches='tight', dpi=200)
+        plt.savefig('./R3_obs_detections.pdf', pad_inches=0,
+                bbox_inches='tight', dpi=200)
     if show:
         plt.show()
 
@@ -684,9 +703,7 @@ def make_snr_plot(data_json, period, ref_mjd=58369.30, save=False,
 
     # PLOTTING
     fig = plt.figure(figsize=(7,7))
-    params = get_params()
-    plt.rcParams.update(params)
-    gs = gridspec.GridSpec(1,1, hspace=0., height_ratios=[1])
+    gs = gridspec.GridSpec(1,1, wspace=0.01, height_ratios=[1])
 
     ax1 = fig.add_subplot(gs[0, 0])
     for i,k in enumerate(burst_dict.keys()):
@@ -705,8 +722,10 @@ def make_snr_plot(data_json, period, ref_mjd=58369.30, save=False,
             right=True)
 
     if save:
-        plt.savefig('./R3_obs_detections.png', pad_inches=0, bbox_inches='tight')
-        plt.savefig('./R3_obs_detections.pdf', pad_inches=0, bbox_inches='tight')
+        plt.savefig('./R3_obs_detections.png', pad_inches=0,
+                bbox_inches='tight', dpi=200)
+        plt.savefig('./R3_obs_detections.pdf', pad_inches=0,
+                bbox_inches='tight', dpi=200)
     if show:
         plt.show()
 
@@ -757,9 +776,6 @@ def make_phase_plot(data_json, period, ref_mjd=None, nbins=40, cmap=None,
             cm = plt.get_cmap(cmap)
             colors = [cm(1.*i/num_colors) for i in range(num_colors)]
 
-    params = get_params()
-    plt.rcParams.update(params)
-
     _ = plt.hist(l, bins=bin_edges, stacked=True, density=False, label=names, edgecolor='black',
                  linewidth=0.5, color=colors)
     plt.xlabel('Phase')
@@ -769,7 +785,8 @@ def make_phase_plot(data_json, period, ref_mjd=None, nbins=40, cmap=None,
     plt.title(title)
     plt.legend()
     if save:
-        plt.savefig('burst_phase_histogram.png', pad_inches=0, bbox_inches='tight')
+        plt.savefig('burst_phase_histogram.png', pad_inches=0,
+                bbox_inches='tight', dpi=200)
     if show:
         plt.show()
 
@@ -782,6 +799,7 @@ if __name__=='__main__':
     					help='FRB period in days.')
     parser.add_argument('-m','--ref_mjd',type=float, default=58369.30,
     					help='Reference MJD.')
+                        # Use 58370.5 to center peak on phase 0.5
     parser.add_argument('-n','--nbins',type=int, default=40,
     					help='Number of phase bins.')
     parser.add_argument('-s','--save', action='store_true', default=False,
@@ -797,8 +815,23 @@ if __name__=='__main__':
 
     print(args.infile)
 
-    params = get_params(1, 1.2)
-    plt.rcParams.update(params)
+    plt.rcParams.update({
+            'font.size': 12,
+            'font.family': 'serif',
+            'axes.labelsize': 12,
+            'axes.titlesize': 14,
+            'xtick.labelsize': 12,
+            'ytick.labelsize': 12,
+            'xtick.direction': 'in',
+            'ytick.direction': 'in',
+            'xtick.minor.visible': True,
+            'ytick.minor.visible': True,
+            'xtick.top': True,
+            'ytick.right': True,
+            'lines.linewidth': 0.5,
+            'lines.markersize': 5,
+            'legend.fontsize': 8,
+            'legend.loc': 'lower right'})
 
     if args.which == 'phase':
         make_obs_phase_plot(args.infile, args.period, ref_mjd=args.ref_mjd,
