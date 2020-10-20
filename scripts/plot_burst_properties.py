@@ -17,7 +17,7 @@ P = 16.29
 REFMJD = 58370.5
 
 # Opening files
-csvname = '/home/ines/Documents/projects/R3/arts/struct_opt_dm/arts_r3_properties.csv'
+csvname = '/home/ines/Documents/projects/R3/arts/arts_r3_properties.csv'
 burst_data = pd.read_csv(csvname)
 burst_data['phase'] = get_phase(burst_data['bary_mjd'], P, ref_mjd=REFMJD)
 burst_data['cycle'] = get_cycle(burst_data['bary_mjd'], P, ref_mjd=REFMJD)
@@ -27,21 +27,21 @@ ncycles = cycmax - cycmin
 
 # Plotting
 plt.rcParams.update({
-        'font.size': 14,
+        'font.size': 12,
         'font.family': 'serif',
-        'axes.labelsize': 14,
-        'axes.titlesize': 18,
+        'axes.labelsize': 12,
+        'axes.titlesize': 14,
         'xtick.labelsize': 12,
         'ytick.labelsize': 12,
         'xtick.direction': 'in',
         'ytick.direction': 'in',
-        # 'xtick.minor.visible': True,
-        # 'ytick.minor.visible': True,
+        'xtick.minor.visible': True,
+        'ytick.minor.visible': True,
         'xtick.top': True,
         'ytick.right': True,
         'lines.linewidth': 0.5,
         'lines.markersize': 5,
-        'legend.fontsize': 14,
+        'legend.fontsize': 12,
         # 'legend.borderaxespad': 0,
         # 'legend.frameon': True,
         'legend.loc': 'upper right'})
@@ -74,8 +74,8 @@ for ii,k in enumerate(properties):
                 yerr=burst_data[errors[ii]][jj],
                 fmt='o', color=color)
     if k == 'struct_opt_dm':
-        ax.hlines(348.8, 0, 1, color='gray', linestyle='--')
-        ax.text(0.55, 347.7, '348.8 pc cm$^{-3}$', horizontalalignment='right')
+        ax.hlines(348.83, 0, 1, color='gray', linestyle='--')
+        ax.text(0.545, 348.9, '348.83 pc cm$^{-3}$', horizontalalignment='left')
     ax.set_ylabel(ylabel[ii])
     ax.set_xlim(0.35,0.6)
     #ax.set_xlim(0.15,0.4)

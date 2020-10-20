@@ -25,10 +25,10 @@ infile = indir + 'r3all_data.json'
 with open(infile, 'r') as f:
     r3_data = json.load(f)
 
-# pminsearch = 0.03
-# pmaxsearch = 20
-pminsearch = 1.57
-pmaxsearch = 65
+pminsearch = 0.03
+pmaxsearch = 20
+# pminsearch = 1.57
+# pmaxsearch = 65
 pres = 10000
 
 # Output files
@@ -44,25 +44,26 @@ gs = gridspec.GridSpec(3,len(telescope_groups), hspace=0.05, wspace=0.05)
 colors = ['#577590', '#90be6d', '#f8961e', '#f94144']
 
 plt.rcParams.update({
-        'font.size': 14,
+        'font.size': 12,
         'font.family': 'serif',
-        'axes.labelsize': 14,
-        'axes.titlesize': 18,
+        'axes.labelsize': 12,
+        'axes.titlesize': 14,
         'xtick.labelsize': 12,
         'ytick.labelsize': 12,
         'xtick.direction': 'in',
         'ytick.direction': 'in',
-        # 'xtick.minor.visible': True,
-        # 'ytick.minor.visible': True,
+        'xtick.minor.visible': True,
+        'ytick.minor.visible': True,
         'xtick.top': True,
         'ytick.right': True,
         'lines.linewidth': 0.5,
         'lines.markersize': 5,
-        'legend.fontsize': 14,
+        'legend.fontsize': 12,
         # 'legend.borderaxespad': 0,
         # 'legend.frameon': True,
         'legend.loc': 'upper right'})
 
+jj = 1
 for ii,telescopes in enumerate(telescope_groups):
     # Opening files
     burst_dict = r3_data['bursts']
@@ -108,7 +109,7 @@ for ii,telescopes in enumerate(telescope_groups):
     #--------------------------------
     # Pearson chi-square test (PR3)
     #--------------------------------
-    #print("# PR3 ",telescopes)
+    # print("# PR3 ",telescopes)
     # rch, p_pr3 = pr3_search(bursts=bursts, obs_mjds=startmjds,
     #         obs_durations=durations, pmin=pminsearch, pmax=pmaxsearch, pres=pres)
     # np.save(outdir + periodogram_names[ii] + '_period_pr3', [rch, p_pr3])
@@ -117,16 +118,16 @@ for ii,telescopes in enumerate(telescope_groups):
     rch, p_pr3 = data[0], data[1]
 
     # Maximum close to 16 days
-    index = np.argmax(rch[np.where(p_pr3>10)]) + len(np.where(p_pr3<=10)[0])
-    p_pr3_max = p_pr3[index]
-    # Errors with FWHM
-    ind_peak = np.where((p_pr3>=12.5) & (p_pr3<=20))[0]
-    hmx = half_max_x(p_pr3[ind_peak], rch[ind_peak])
-    fwhm = hmx[1] - hmx[0]
-    half = max(rch[ind_peak])/2.0
-    pmax = hmx[1] - p_pr3_max
-    pmin = p_pr3_max - hmx[0]
-    print("%.2f\\errors{%.2f}{%.2f} &" % (p_pr3_max, pmax, pmin), end=' ')
+    # index = np.argmax(rch[np.where(p_pr3>10)]) + len(np.where(p_pr3<=10)[0])
+    # p_pr3_max = p_pr3[index]
+    # # Errors with FWHM
+    # ind_peak = np.where((p_pr3>=12.5) & (p_pr3<=20))[0]
+    # hmx = half_max_x(p_pr3[ind_peak], rch[ind_peak])
+    # fwhm = hmx[1] - hmx[0]
+    # half = max(rch[ind_peak])/2.0
+    # pmax = hmx[1] - p_pr3_max
+    # pmin = p_pr3_max - hmx[0]
+    # print("%.2f\\errors{%.2f}{%.2f} &" % (p_pr3_max, pmax, pmin), end=' ')
 
     # Plotting
     ax1 = fig.add_subplot(gs[0, ii])
@@ -139,27 +140,27 @@ for ii,telescopes in enumerate(telescope_groups):
     #-----------------------------------------------
     # Narrowest folded profile, Rajwade+2020 (R20)
     #-----------------------------------------------
-    #print("# R20 ",telescopes)
+    print("# R20 ",telescopes)
     # bursts = np.sort(bursts - np.min(bursts))
     # unique_days = np.unique(np.round(bursts))
     # cont_frac, p_r20 = riptide_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
-    #         ts_bin_width=1e-5)
+    #         ts_bin_width=1e-6)
     # np.save(outdir + periodogram_names[ii] + '_period_r20', [cont_frac, p_r20])
     # Opening data
     data = np.load(outdir + periodogram_names[ii] + '_period_r20.npy')
     cont_frac, p_r20 = np.flip(data[0]), np.flip(data[1])
 
     # Maximum close to 16 days
-    index = np.argmax(cont_frac)
-    p_r20_max = p_r20[index]
-    # Errors with FWHM
-    ind_peak = np.where((p_r20>=14) & (p_r20<=19))[0]
-    hmx = half_max_x(p_r20[ind_peak], cont_frac[ind_peak])
-    fwhm = hmx[1] - hmx[0]
-    half = max(cont_frac[ind_peak])/2.0
-    pmax = hmx[1] - p_r20_max
-    pmin = p_r20_max - hmx[0]
-    print("%.2f\\errors{%.2f}{%.2f} &" % (p_r20_max, pmax, pmin), end=' ')
+    # index = np.argmax(cont_frac)
+    # p_r20_max = p_r20[index]
+    # # Errors with FWHM
+    # ind_peak = np.where((p_r20>=14) & (p_r20<=19))[0]
+    # hmx = half_max_x(p_r20[ind_peak], cont_frac[ind_peak])
+    # fwhm = hmx[1] - hmx[0]
+    # half = max(cont_frac[ind_peak])/2.0
+    # pmax = hmx[1] - p_r20_max
+    # pmin = p_r20_max - hmx[0]
+    # print("%.2f\\errors{%.2f}{%.2f} &" % (p_r20_max, pmax, pmin), end=' ')
 
     # Plotting
     ax2 = fig.add_subplot(gs[1, ii])
@@ -172,10 +173,10 @@ for ii,telescopes in enumerate(telescope_groups):
     #--------------------------------------------------------
     # QMI based on Euclidean distance for periodogram (P4J)
     #--------------------------------------------------------
-    #print("# P4J ",telescopes)
-    # periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
-    #         plot=False, save=False, mjd_err=0.1, pres=0.0001)
-    # np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
+    print("# P4J ",telescopes)
+    periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
+            plot=False, save=False, mjd_err=0.1, pres=0.01)
+    np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
     # Opening data
     data = np.load(outdir + periodogram_names[ii] + '_period_p4j.npy')
     periodogram, p_p4j = np.flip(data[0]), np.flip(data[1])
@@ -184,16 +185,16 @@ for ii,telescopes in enumerate(telescope_groups):
     periodogram = periodogram/np.max(periodogram)
 
     # Maximum close to 16 days
-    index = np.argmax(periodogram)
-    p_p4j_max = p_p4j[index]
-    # Errors with FWHM
-    ind_peak = np.where((p_p4j>=15.5) & (p_p4j<=17))[0]
-    hmx = half_max_x(p_p4j[ind_peak], periodogram[ind_peak])
-    fwhm = hmx[1] - hmx[0]
-    half = max(periodogram[ind_peak])/2.0
-    pmax = hmx[1] - p_p4j_max
-    pmin = p_p4j_max - hmx[0]
-    print("%.2f\\errors{%.2f}{%.2f} \\\\" % (p_p4j_max, pmax, pmin))
+    # index = np.argmax(periodogram)
+    # p_p4j_max = p_p4j[index]
+    # # Errors with FWHM
+    # ind_peak = np.where((p_p4j>=15.5) & (p_p4j<=17))[0]
+    # hmx = half_max_x(p_p4j[ind_peak], periodogram[ind_peak])
+    # fwhm = hmx[1] - hmx[0]
+    # half = max(periodogram[ind_peak])/2.0
+    # pmax = hmx[1] - p_p4j_max
+    # pmin = p_p4j_max - hmx[0]
+    # print("%.2f\\errors{%.2f}{%.2f} \\\\" % (p_p4j_max, pmax, pmin))
 
     # Plotting
     ax3 = fig.add_subplot(gs[2, ii])
@@ -218,12 +219,16 @@ for ii,telescopes in enumerate(telescope_groups):
         ax2.set_yticklabels([])
         ax3.set_yticklabels([])
 
-    for ax in (ax1, ax2, ax3):
+    for jj,ax in enumerate([ax1, ax2, ax3]):
+        kk = ii + jj*len(telescope_groups) + 1
         ax.set_xlim(1.57, 65)
         ax.set_xlim(pminsearch, pmaxsearch)
-        #ax.set_xscale('log')
+        ax.set_xscale('log')
+        ax.text(0.9, 0.9, chr(ord('@')+kk),
+                transform=ax.transAxes)
         # ax.vlines(16.35, -1,50, lw=1, color='gray')
         # ax.vlines(8.175, -1,50, linestyle='--', lw=1, color='gray')
+        jj += 1
         for n in range(37):
             pnp = (n/0.99727+1/16.28)**-1
             pnm = (n/0.99727-1/16.28)**-1

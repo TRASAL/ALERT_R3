@@ -105,14 +105,30 @@ mu,sigma = norm.fit(data_dict['CHIME'][1])
 
 #fig, ax = plt.subplots(3, 1)
 fig = plt.figure(figsize=(8,13))
-gs = gridspec.GridSpec(3,1, hspace=0.25, wspace=0.01)
+gs = gridspec.GridSpec(3,1, hspace=0.05, wspace=0.01)
+
+plt.rcParams.update({
+        'font.size': 10,
+		'font.family': 'serif',
+        'axes.labelsize': 14,
+        'axes.titlesize': 18,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'xtick.direction': 'in',
+        'ytick.direction': 'in',
+        'xtick.top': True,
+        'ytick.right': True,
+        'lines.linewidth': 1,
+        'lines.markersize': 5,
+        'legend.fontsize': 10,
+        'legend.loc': 'upper right'})
 
 for ii,inst in enumerate([['ARTS', 'LOFAR'], ['ARTS', 'CHIME'], ['CHIME', 'LOFAR']]):
 
-    statistic, pvalue, bursts_lofar, bursts_chime = simulate_ks(data_json,
-            inst1=inst[0], inst2=inst[1], P=P,
-            outfile=foutdir+'simulated_ks_{}_{}-{}.txt'.format(P, inst[0], inst[1]),
-            ref_mjd=ref_mjd, rate=chime_rate, mu=mu, sigma=sigma, trials=1e4)
+    # statistic, pvalue, bursts_lofar, bursts_chime = simulate_ks(data_json,
+    #         inst1=inst[0], inst2=inst[1], P=P,
+    #         outfile=foutdir+'simulated_ks_{}_{}-{}.txt'.format(P, inst[0], inst[1]),
+    #         ref_mjd=ref_mjd, rate=chime_rate, mu=mu, sigma=sigma, trials=1e4)
     ref_stat, ref_pvalue = stats.ks_2samp(data_dict[inst[0]][1],
             data_dict[inst[1]][1])
     print(inst, ref_pvalue)
@@ -141,27 +157,36 @@ for ii,inst in enumerate([['ARTS', 'LOFAR'], ['ARTS', 'CHIME'], ['CHIME', 'LOFAR
 
     # Simulated KS
     ax = fig.add_subplot(gs[ii, 0])
-    ax.hist(1/pvalue, bins=np.logspace(np.log10(min(1/pvalue)),np.log10(max(1/pvalue)), 100), density=True, histtype='stepfilled', color='C0', alpha=0.4)
-    ax.vlines(1/ref_pvalue, ymin=0, ymax=1, colors='k', linestyles='solid')
-    s1, s2, s3 = (np.percentile(1/pvalue, 68.27), np.percentile(1/pvalue, 95.45),
-            np.percentile(1/pvalue, 99.73))
-    ax.vlines([s1,s2,s3], ymin=0, ymax=1, colors='k', alpha=0.3,
+    ax.hist(pvalue,
+            bins=np.logspace(np.log10(min(pvalue)),np.log10(max(pvalue)), 100),
+            histtype='stepfilled', color='C0', alpha=0.4)
+    ax.vlines(ref_pvalue, ymin=0, ymax=1e3, colors='k', linestyles='solid')
+    s1, s2, s3 = (np.percentile(pvalue, 100-68.27),
+            np.percentile(pvalue, 100-95.45),
+            np.percentile(pvalue, 100-99.73))
+    ax.vlines([s1,s2,s3], ymin=0, ymax=1e3, colors='k', alpha=0.3,
             linestyles=['dotted', 'dashdot', 'dashed'])
-    ax.text(1/ref_pvalue, 0.45, "pvalue = {:.2e}".format(ref_pvalue),
+    ax.text(ref_pvalue, 1e3, "p-value = {:.2e}".format(ref_pvalue),
             rotation='vertical', verticalalignment='top',
             horizontalalignment='right')
-    ax.text(s1, 0.45, "68.27 %", rotation='vertical', verticalalignment='top',
+    ax.text(s1, 1e3, "68.27 %", rotation='vertical', verticalalignment='top',
             horizontalalignment='right')
-    ax.text(s2, 0.45, "95.45 %", rotation='vertical', verticalalignment='top',
+    ax.text(s2, 1e3, "95.45 %", rotation='vertical', verticalalignment='top',
             horizontalalignment='right')
-    ax.text(s3, 0.45, "99.73 %", rotation='vertical', verticalalignment='top',
+    ax.text(s3, 1e3, "99.73 %", rotation='vertical', verticalalignment='top',
             horizontalalignment='right')
-    ax.text(0.05, 0.95, '{}-{}'.format(inst[0], inst[1]),
-            transform=ax.transAxes, verticalalignment='top')
+    ax.text(0.06, 0.95, '{}-{}'.format(inst[0], inst[1]),
+            transform=ax.transAxes, verticalalignment='top', color='C0')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_ylim(1e-8,0.5)
-    ax.set_xlim(1,1e9)
+    ax.set_ylim(8e-1,1e3)
+    ax.set_xlim(5e-10,1)
+
+    if ii<2:
+        ax.set_xticklabels([])
+    else:
+        ax.set_xlabel("p-value")
+    ax.set_ylabel("N")
 
     # ax2 = ax[1]
     # ax2.hist(statistic, bins=100, density=True, histtype='stepfilled', color='C0', alpha=0.4)
@@ -177,4 +202,8 @@ for ii,inst in enumerate([['ARTS', 'LOFAR'], ['ARTS', 'CHIME'], ['CHIME', 'LOFAR
     # ax2.set_title('statistic')
     # ax2.set_yscale('log')
     # ax2.set_ylim(1e-2,12)
+
+plt_out = "/home/ines/Documents/projects/R3/periodicity/simulated_ks.png"
+print('Saving figure to ', plt_out)
+plt.savefig(plt_out, pad_inches=0, bbox_inches='tight')
 plt.show()

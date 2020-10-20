@@ -830,7 +830,7 @@ if __name__=='__main__':
             'ytick.right': True,
             'lines.linewidth': 0.5,
             'lines.markersize': 5,
-            'legend.fontsize': 8,
+            'legend.fontsize': 6,
             'legend.loc': 'lower right'})
 
     if args.which == 'phase':

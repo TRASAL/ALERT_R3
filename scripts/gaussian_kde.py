@@ -9,9 +9,6 @@ import matplotlib.gridspec as gridspec
 
 P = 16.29
 fndir = '/home/ines/Documents/projects/R3/periodicity/burst_phases/'
-# fnchime = fndir + 'phase_CHIME_p16.28_f600.0.npy'
-# fnarts = fndir + 'phase_ARTS_p16.28_f1370.0.npy'
-# fnlofar = fndir + 'phase_LOFAR_p16.28_f150.0.npy'
 
 fnarts = fndir + 'phase_ARTS_p{:.2f}_f1370.0.npy'.format(P)
 fnchime = fndir + 'phase_CHIME_p{:.2f}_f600.0.npy'.format(P)
@@ -101,13 +98,13 @@ plt.rcParams.update({
         'ytick.labelsize': 12,
         'xtick.direction': 'in',
         'ytick.direction': 'in',
-        # 'xtick.minor.visible': True,
-        # 'ytick.minor.visible': True,
+        'xtick.minor.visible': True,
+        'ytick.minor.visible': True,
         'xtick.top': True,
         'ytick.right': True,
         'lines.linewidth': 0.5,
         'lines.markersize': 5,
-        'legend.fontsize': 12,
+        'legend.fontsize': 10,
         # 'legend.borderaxespad': 0,
         # 'legend.frameon': True,
         'legend.loc': 'upper right'})
