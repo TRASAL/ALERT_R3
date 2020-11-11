@@ -33,11 +33,11 @@ pres = 10000
 
 # Output files
 outdir = '/home/ines/Documents/projects/R3/periodicity/periodograms/'
-plt_out = outdir + 'periodograms.png'
+plt_out = outdir + 'periodograms.pdf'
 
-telescope_groups = ['all', ['ARTS'], ['CHIME'], ['ARTS', 'CHIME']]
-periodogram_names = ['all', 'ARTS', 'CHIME', 'CHIME_ARTS']
-#telescopes = ['ARTS', 'CHIME']
+telescope_groups = ['all', ['Apertif'], ['CHIME'], ['Apertif', 'CHIME']]
+periodogram_names = ['all', 'Apertif', 'CHIME', 'CHIME_Apertif']
+#telescopes = ['Apertif', 'CHIME']
 #telescopes = 'all'
 fig = plt.figure(figsize=(13,10))
 gs = gridspec.GridSpec(3,len(telescope_groups), hspace=0.05, wspace=0.05)
@@ -109,7 +109,7 @@ for ii,telescopes in enumerate(telescope_groups):
     #--------------------------------
     # Pearson chi-square test (PR3)
     #--------------------------------
-    # print("# PR3 ",telescopes)
+    print("# PR3 ",telescopes)
     # rch, p_pr3 = pr3_search(bursts=bursts, obs_mjds=startmjds,
     #         obs_durations=durations, pmin=pminsearch, pmax=pmaxsearch, pres=pres)
     # np.save(outdir + periodogram_names[ii] + '_period_pr3', [rch, p_pr3])
@@ -174,9 +174,9 @@ for ii,telescopes in enumerate(telescope_groups):
     # QMI based on Euclidean distance for periodogram (P4J)
     #--------------------------------------------------------
     print("# P4J ",telescopes)
-    periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
-            plot=False, save=False, mjd_err=0.1, pres=0.01)
-    np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
+    # periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
+    #         plot=False, save=False, mjd_err=0.1, pres=1e-2)
+    # np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
     # Opening data
     data = np.load(outdir + periodogram_names[ii] + '_period_p4j.npy')
     periodogram, p_p4j = np.flip(data[0]), np.flip(data[1])
@@ -185,8 +185,8 @@ for ii,telescopes in enumerate(telescope_groups):
     periodogram = periodogram/np.max(periodogram)
 
     # Maximum close to 16 days
-    # index = np.argmax(periodogram)
-    # p_p4j_max = p_p4j[index]
+    # index = np.argmax(periodogram[np.where((p_p4j>=15.5) & (p_p4j<=17))[0]])
+    # p_p4j_max = p_p4j[index + np.where(p_p4j>=15.5)[0][0]]
     # # Errors with FWHM
     # ind_peak = np.where((p_p4j>=15.5) & (p_p4j<=17))[0]
     # hmx = half_max_x(p_p4j[ind_peak], periodogram[ind_peak])

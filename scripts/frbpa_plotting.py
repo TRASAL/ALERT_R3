@@ -149,12 +149,12 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     phase_tot.sort()
     burst_tot, _ = np.histogram(phase_tot, bins=nbins, range=(0,1))
 
-    off = np.where(burst_per_phase_dict['ARTS'] == 0)[0]
-    on = np.where(burst_per_phase_dict['ARTS'] > 0)[0]
-    print("Hours ARTS observed during on phase: {:.2f}".format(
-            np.sum(duration_per_phase_dict['ARTS'][on])))
-    print("Hours ARTS observed during off phase: {:.2f}".format(
-            np.sum(duration_per_phase_dict['ARTS'][off])))
+    off = np.where(burst_per_phase_dict['Apertif'] == 0)[0]
+    on = np.where(burst_per_phase_dict['Apertif'] > 0)[0]
+    print("Hours Apertif observed during on phase: {:.2f}".format(
+            np.sum(duration_per_phase_dict['Apertif'][on])))
+    print("Hours Apertif observed during off phase: {:.2f}".format(
+            np.sum(duration_per_phase_dict['Apertif'][off])))
 
     # DEFINING COLORS
     cm = plt.cm.get_cmap('Spectral_r')
@@ -260,11 +260,11 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
                 f.write("{:.3f} {} {} {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
                         bin_mids[i], burst_tot[i],
                         burst_per_phase_dict["CHIME"][i],
-                        burst_per_phase_dict["ARTS"][i],
+                        burst_per_phase_dict["Apertif"][i],
                         burst_per_phase_dict["LOFAR"][i],
                         duration_per_phase_tot[i],
                         duration_per_phase_dict["CHIME"][i],
-                        duration_per_phase_dict["ARTS"][i],
+                        duration_per_phase_dict["Apertif"][i],
                         duration_per_phase_dict["LOFAR"][i]))
         for i,k in enumerate(burst_dict.keys()):
             np.save(dir_out + 'phase_{}_p{:.2f}_f{:.1f}'.format(k, period,

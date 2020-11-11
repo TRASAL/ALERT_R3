@@ -21,7 +21,7 @@ data_lofar=np.load(fnlofar)
 chime_mjd=Time(data_chime[0], format='mjd')
 year_arr=[]
 period = fnarts.split('/')[-1].split('_')[2].replace('p','')
-plt_out = "/home/ines/Documents/projects/R3/periodicity/gaussian_kde.png"
+plt_out = "/home/ines/Documents/projects/R3/periodicity/gaussian_kde.pdf"
 for dd in chime_mjd.datetime:
 	year_arr.append(dd.year)
 year_arr=np.array(year_arr)

@@ -203,7 +203,7 @@ for ii,inst in enumerate([['ARTS', 'LOFAR'], ['ARTS', 'CHIME'], ['CHIME', 'LOFAR
     # ax2.set_yscale('log')
     # ax2.set_ylim(1e-2,12)
 
-plt_out = "/home/ines/Documents/projects/R3/periodicity/simulated_ks.png"
+plt_out = "/home/ines/Documents/projects/R3/periodicity/simulated_ks.pdf"
 print('Saving figure to ', plt_out)
 plt.savefig(plt_out, pad_inches=0, bbox_inches='tight')
 plt.show()

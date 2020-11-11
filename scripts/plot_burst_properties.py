@@ -14,7 +14,7 @@ from frbpa.utils import get_phase, get_cycle, get_params
 
 # Initial parameters
 P = 16.29
-REFMJD = 58370.5
+REFMJD = 58369.9
 
 # Opening files
 csvname = '/home/ines/Documents/projects/R3/arts/arts_r3_properties.csv'
@@ -59,7 +59,7 @@ fig = plt.figure(figsize=(8,13))
 gs = gridspec.GridSpec(len(properties),1, hspace=0.01, wspace=0.01)
 
 #colors = ['#577590', '#43aa8b', '#90be6d', '#f9c74f', '#f8961e', '#f3722c', '#f94144']
-colors = ['#577590', '#90be6d', '#f8961e', '#f94144']
+colors = ['#577590', '#90be6d', '#f9c74f', '#f8961e', '#f94144']
 
 
 for ii,k in enumerate(properties):
@@ -70,12 +70,16 @@ for ii,k in enumerate(properties):
         col = np.where(plt_cycles == burst_data['cycle'][jj])[0]
         #cycmax - burst_data['cycle'][jj]
         color = colors[int(col)]
+        if burst_data['snr'][jj] > 20:
+            ecolor = 'k'
+        else:
+            ecolor = color
         ax.errorbar(burst_data['phase'][jj], burst_data[k][jj],
                 yerr=burst_data[errors[ii]][jj],
-                fmt='o', color=color)
+                fmt='o', color=color, mec=ecolor, mew=0.5)
     if k == 'struct_opt_dm':
-        ax.hlines(348.83, 0, 1, color='gray', linestyle='--')
-        ax.text(0.545, 348.9, '348.83 pc cm$^{-3}$', horizontalalignment='left')
+        ax.hlines(348.75, 0, 1, color='gray', linestyle='--')
+        ax.text(0.545, 348.8, '348.75 pc cm$^{-3}$', horizontalalignment='left')
     ax.set_ylabel(ylabel[ii])
     ax.set_xlim(0.35,0.6)
     #ax.set_xlim(0.15,0.4)
@@ -97,7 +101,7 @@ labels=["Cycle {}".format(int(c))
 ax.legend(lines, labels)
 
 #plt.scatter(burst_data['phase'], burst_data['fluence_Jyms'])
-plt_out = '/home/ines/Documents/projects/R3/arts/burst_properties.png'
+plt_out = '/home/ines/Documents/projects/R3/arts/burst_properties.pdf'
 print('Plot saved:', plt_out)
 plt.savefig(plt_out, pad_inches=0, bbox_inches='tight')
 plt.show()
