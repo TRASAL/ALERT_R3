@@ -10,8 +10,16 @@ import pylab as plt
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.gridspec as gridspec
-from frbpa.utils import get_phase, get_cycle, get_params
+from frbpa.utils import get_phase#, get_cycle, get_params
 from scipy.optimize import curve_fit
+
+def pl(x, xmin=None):
+   """ Get the maximum likelihood power-law 
+   index for the distribution x
+   """
+   if xmin is None:
+       xmin = x.min()
+   return (len(x)-1)/(float(len(x)))*(1./len(x) * np.sum(np.log(x/xmin)))**-1
 
 def sort_dict(dictionary, list):
     sorted_dict = {k: dictionary[k] for k in list if k in dictionary.keys()}
@@ -99,11 +107,24 @@ ref_mjd = 58369.9
 d_L = 149
 BW = 300
 
+# LOFAR fluence and snr
+Tobs_lofar = 59.0
+duty_cycle_lofar = 1.0 
+# Use the lofar data from the Paper's table
+lofar_fluence = np.array([69, 33, 76, 176, 103, 272, 267, 197, 100]) 
+lofar_snr = np.array([8.7, 7.3, 9.5, 18.9, 13.7, 29.4, 35.1, 23.5, 12.5])
+
+lofar_fluence.sort()
+
 # Opening files
 data_json = '/home/ines/Documents/projects/R3/periodicity/r3all_data.json'
+# Liam edit
+data_json = './r3all_data.json'
 burst_dict, snr_dict, obs_duration_dict, obs_startmjds_dict, fmin_dict, fmax_dict, fcen_dict = open_json(data_json)
 
 fluence_fn = '/home/ines/Documents/projects/R3/arts/fluxcal/fluence_int.txt'
+# Liam edit
+fluence_fn = './fluence_int.txt'
 fl = np.genfromtxt(fluence_fn, names=True)
 arts_fluence, arts_ferr = [], []
 for i in range(len(fl)):
@@ -117,7 +138,10 @@ arts_mjd = [x for _,x in sorted(zip(arts_fluence,fl['MJD']))]
 arts_ferr = [x for _,x in sorted(zip(arts_fluence,arts_ferr))]
 arts_phase = get_phase(fl['MJD'], period, ref_mjd=ref_mjd)
 arts_phase = [x for _,x in sorted(zip(arts_fluence,arts_phase))]
-arts_fluence.sort()
+
+# Liam edit: get observing time in each phase bin
+arts_time_phase_bin = get_phase(np.array(obs_startmjds_dict['Apertif']), period, ref_mjd=ref_mjd)
+arts_obs_duration = np.array(obs_duration_dict['Apertif'])
 print("Fluence boxcar", fl['fluence_Jyms'])
 # for f in fl['fluence_Jyms']:
 #     print(f)
@@ -138,7 +162,7 @@ plt.ylabel('Fluence (Jy ms)')
 plt.xlabel('Phase')
 plt.xlim(0.35,0.6)
 plt.ylim(0,1.15*max(arts_fluence))
-plt.show()
+#plt.show()
 
 # Comparing fluence SNR-width and fluence integral
 arts_fluence = []
@@ -157,20 +181,19 @@ for i in range(len(arts_mjd)):
                      color='c', zorder=10)
         arts_fluence.append(fl['fluence_Jyms'][i])
 
-
 lines = [plt.plot([], 'o', color='k')[0],
         plt.plot([], 'o', color='c')[0]]
 labels=['boxcar', 'integral']
 
 plt.legend(lines, labels)
 
-
 plt.ylabel('Fluence (Jy ms)')
 plt.xlabel('ID')
-plt.show()
+#plt.show()
 
 # Cumulative distribution function
 csvname = '/home/ines/Documents/projects/R3/arts/arts_r3_properties.csv'
+csvname = 'arts_r3_properties.csv'
 burst_data = np.genfromtxt(csvname, delimiter=',', names=True)
 
 arts_fluence = burst_data['fluence_Jyms']
@@ -188,27 +211,39 @@ cumulative_rate = np.array([(len(arts_fluence)-i)/arts_obs_time
 cumulative_n = np.array([len(arts_fluence)-i for i in range(len(arts_fluence))])
 cumulative_snr = np.array([len(arts_snr)-i for i in range(len(arts_fluence))])
 
+print("LOFAR fluence slope %0.2f" % pl(np.array(lofar_fluence)))
+print("ARTS fluence slope %0.2f" % pl(np.array(arts_fluence)))
+
+print("LOFAR SNR slope %0.2f" % pl(np.array(lofar_snr)))
+print("ARTS SNR slope %0.2f" % pl(np.array(arts_snr)))
+
+# do the same for LOFAR
+cumulative_n_lofar = np.array([len(lofar_fluence)-i for i in range(len(lofar_fluence))])
+
 # Converting fluence to energy
 arts_energy = fluence_to_energy(arts_fluence)
 
 # Fitting CFD to powerlaw and plotting
-cm = plt.cm.get_cmap('twilight')
-fig = plt.figure()
-plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
+#cm = plt.cm.get_cmap('twilight')
+#cm = ''
+fig = plt.figure(figsize=(7,5))
 gs = gridspec.GridSpec(1,1)
 
 ax1 = fig.add_subplot(gs[0, 0])
 # ax1.errorbar(arts_fluence, cumulative_n, yerr=np.sqrt(cumulative_n),
 #         errorevery=3, zorder=10, linestyle='-', lw=1, marker='o', color='gray',
 #         label="All bursts")
-ax1.plot(arts_fluence, cumulative_n, zorder=10, linestyle='-', lw=1,
-        marker='o', color='k', label="All bursts")
-ax1.set_xlabel('Fluence (Jy ms)')
-ax1.set_ylabel('N (>F)')
-ax1.set_xscale('log')
-ax1.set_yscale('log')
-ax1.set_xlim(3e-1,30)
-ax1.set_ylim(8e-1,70)
+if True:
+   ax1.plot(arts_fluence, cumulative_n/arts_obs_time, zorder=10, linestyle='-', lw=1,
+        marker='o', color='k', label="All ARTS bursts")
+   ax1.plot(lofar_fluence, cumulative_n_lofar/Tobs_lofar*duty_cycle_lofar, zorder=10, linestyle='-', lw=1,
+         marker='s', color='red', label="All LOFAR bursts", alpha=0.425)
+   ax1.set_xlabel('Fluence (Jy ms)')
+   ax1.set_ylabel(r'Rate (>F)   hr$^{-1}$')
+   ax1.set_xscale('log')
+   ax1.set_yscale('log')
+   ax1.set_xlim(7e-1,400)
+   ax1.set_ylim(1e-3, 2)
 
 fl_hi, fl_md, fl_lo = [], [], []
 cm_hi, cm_md, cm_lo = [], [], []
@@ -231,37 +266,45 @@ p0=[-2.3, 100]
 coeff_hi, var_hi = curve_fit(func_powerlaw, fl_hi, cm_hi, p0=p0,
         sigma=np.sqrt(cm_hi))
 print("High fluence pl fit", coeff_hi)
-ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_hi),
+ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_hi)/arts_obs_time,
          color='k', alpha=0.4, linestyle='--', label='pl > 5.3 Jy ms')
 
 coeff_md, var_md = curve_fit(func_powerlaw, fl_md, cm_md, p0=p0,
         sigma=np.sqrt(cm_md))
 print("Medium fluence pl fit", coeff_md)
-ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_md),
+ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_md)/arts_obs_time,
          color='k', alpha=0.4, linestyle='dotted', label='pl 1.4-5.3 Jy ms')
 
 coeff_lo, var_lo = curve_fit(func_powerlaw, fl_lo, cm_lo, p0=p0,
         sigma=np.sqrt(cm_lo))
 print("Low fluence pl fit", coeff_lo)
-ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_lo),
+ax1.plot(np.logspace(-1,2), func_powerlaw(np.logspace(-1,2), *coeff_lo)/arts_obs_time,
          color='k', alpha=0.4, linestyle='-.', label='pl < 1.4 Jy ms')
 
 phase_range = [0.36, 0.44, 0.47, 0.49, 0.52, 0.6]
+phase_range = [0.35, 0.46, 0.51, 0.62]
 color_test=['#95b88c', '#538d8c', '#2a3857', '#965da6', '#d685a4', 'C6', 'C7']
 for i,p in enumerate(phase_range[:-1]):
     c = color_test[i]
     flist = []
     for j,f in enumerate(arts_fluence):
         if arts_phase[j] > p and arts_phase[j] < phase_range[i+1]:
+            # Liam edit: convert y-axis into a rate
+            arts_time_phase_bin = get_phase(np.array(obs_startmjds_dict['Apertif']), period, ref_mjd=ref_mjd)
+            tobs_j = np.sum(arts_obs_duration[np.where((arts_time_phase_bin<phase_range[i+1]) & (arts_time_phase_bin>p))[0]])
             flist.append(f)
-    ax1.plot(flist, [len(flist)-i for i in range(len(flist))], linestyle='-',
-            marker='o', color=c, label="phase range "+str(i-2), markersize=5,
-            linewidth=0.5)
+ 
+    leglabel="phase: %0.2f-%0.2f "%(p,phase_range[i+1])
+    ax1.plot(flist, ([len(flist)-i for i in range(len(flist))])/tobs_j, linestyle='-',
+            marker='', color=c, label=leglabel, markersize=5,
+             linewidth=0.8)           
+
 ax1.legend()
 
 # ax1.axvline(1.4, ymin=0, ymax=1e3, zorder=0, color='k', ls=(0, (5, 1)), alpha=0.3)
 # ax1.axvline(5.3, ymin=0, ymax=1e3, zorder=0, color='k', ls=(0, (5, 1)), alpha=0.3)
 
-plt_fl = '/home/ines/Documents/projects/R3/arts/fluxcal/cdf_fluence.pdf'
+#plt_fl = '/home/ines/Documents/projects/R3/arts/fluxcal/cdf_fluence.pdf'
+plt_fl = 'cdf_fluence.pdf'
 plt.savefig(plt_fl, pad_inches=0, bbox_inches='tight', dpi=200)
 plt.show()
