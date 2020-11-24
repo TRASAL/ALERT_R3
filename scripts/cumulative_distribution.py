@@ -118,7 +118,18 @@ arts_ferr = [x for _,x in sorted(zip(arts_fluence,arts_ferr))]
 arts_phase = get_phase(fl['MJD'], period, ref_mjd=ref_mjd)
 arts_phase = [x for _,x in sorted(zip(arts_fluence,arts_phase))]
 arts_fluence.sort()
-print("ARTS fluences", arts_fluence)
+print("Fluence boxcar", fl['fluence_Jyms'])
+# for f in fl['fluence_Jyms']:
+#     print(f)
+# print("Error")
+# for f in fl['fluence_err']:
+#     print(f)
+print("ARTS fluences", fl['fint_Jyms'])
+# for f in fl['fint_Jyms']:
+#     print(f)
+# print("Error")
+# for f in fl['fint_err']:
+#     print(f)
 
 # Plotting fluence vs. phase
 plt.errorbar(arts_phase, arts_fluence, yerr=arts_ferr, fmt='o', color='k',
@@ -183,6 +194,7 @@ arts_energy = fluence_to_energy(arts_fluence)
 # Fitting CFD to powerlaw and plotting
 cm = plt.cm.get_cmap('twilight')
 fig = plt.figure()
+plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
 gs = gridspec.GridSpec(1,1)
 
 ax1 = fig.add_subplot(gs[0, 0])
