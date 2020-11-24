@@ -4,7 +4,7 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
+from matplotlib.ticker import (AutoMinorLocator, MultipleLocator, MaxNLocator)
 from matplotlib.lines import Line2D
 from astropy.time import Time
 import astropy.units as u
@@ -16,6 +16,7 @@ import pol
 import read_IQUV_dada
 import reader
 import triggers
+from calibration_tools import run_fluxcal, CalibrationTools, Plotter
 SNRtools = tools.SNR_Tools()
 
 # Example usage
@@ -33,8 +34,9 @@ def rebin(arr, binsz):
              new_shape[1], arr.shape[1] // new_shape[1])
     return arr.reshape(shape).mean(-1).mean(1)
 
-def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300.,
-        fmin=1219.50561523, fmax=1519.50561523):
+def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300., nsamp=512,
+                bscrunch=2, fscrunch=2, id=None,
+                fmin=1219.50561523, fmax=1519.50561523, fn_bandpass=None):
     """
     Getting PA values from IQUV array after callibration and bandpass correction
     """
@@ -46,71 +48,91 @@ def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300.,
 
     freq = np.arange(fmin, fmax, bw/nfreq)
     xyphase = np.load(fn_xyphase)
+    if fn_bandpass != None:
+        print("Loading bandpass %s" % fn_bandpass)
+        bandpass_arr = np.load(fn_bandpass)
+        bandpass_arr[np.isnan(bandpass_arr)] = np.nanmean(bandpass_arr)
+        bandpass_arr[np.where(bandpass_arr == 0)] = np.mean(bandpass_arr)
+    else:
+        print("not using bandpass")
+        bandpass_arr = np.ones(nfreq)
 
     # Frequency mask
     f_mask = range(1532,1536)
+    if id == "A09":
+        f_mask.extend(range(175, 200))
+    elif id == "A01":
+        f_mask.extend(range(305, 330))
     snr_max, width_max = SNRtools.calc_snr_matchedfilter(d[0].mean(0),
             widths=range(250))
     #get channel weights
     nsubband_snr=192
     Isubband = d[0].reshape(nfreq//nsubband_snr, nsubband_snr, ntime).mean(1)
-    width_max = max(4,width_max)#hack
+    width_max = max(4,width_max)
     weights_f = []
 
     for kk in range(Isubband.shape[0]):
         Isub_ = Isubband[kk, :ntime//width_max*width_max]
         Isub_ = Isub_.reshape(-1, width_max).mean(-1)
         Isub_ -= np.median(Isub_)
-        snr_subband = Isub_[int(ntime/2./width_max)] \
-                / np.std(Isub_[:int(ntime/2./width_max)-5])
+        snr_subband = Isub_[int(ntime/2./width_max)]/np.std(Isub_[:int(ntime/2./width_max)-5])
+        # Create a S/N^2 weights array for full 1536 channel spectrum
         weight_kk = (max(snr_subband,0)*np.ones([nsubband_snr]))**2
-        weights_f.append((max(snr_subband,0)*np.ones([96]))**2)
+        weights_f.append(weight_kk)
 
+
+#    for kk in range(Isubband.shape[0]):
+#        Isub_ = Isubband[kk, :ntime//width_max*width_max]
+#        Isub_ = Isub_.reshape(-1, width_max).mean(-1)
+#        Isub_ -= np.median(Isub_)
+#        snr_subband = Isub_[int(ntime/2./width_max)] \
+#                / np.std(Isub_[:int(ntime/2./width_max)-5])
+#        weight_kk = (max(snr_subband,0)*np.ones([nsubband_snr]))**2
+#        weights_f.append((max(snr_subband,0)*np.ones([96]))**2)
 
     weights_f = np.array(np.concatenate(weights_f)).flatten()
     weights_f = weights_f[:, None]
     on = d[0, :, 5000-width_max//2:5000+width_max//2].mean(1)
     off = d[0, :, :4500].mean(1)
-    frb_spectrum = (on - off)/off
+    frb_spectrum = (on - off)/bandpass_arr[:,None]
     frb_spectrum[f_mask] = 0.0
     frb_spectrum = frb_spectrum.reshape(-1, 16).mean(-1)
 
     for jj in range(4):
+        # d[jj] = d[jj].astype(float)
+        # off = d[jj, :, :4500].mean(1)
+        # d[jj] = (d[jj] - off[:, None]) #/ off[:, None]
+        # d[jj] -= np.median(d[jj].mean(0)[:4000])
+        # d[jj] /= np.std(d[jj].mean(0)[:4000])
+        #d[jj] = np.divide(d[jj].T, bandpass_arr).T
+
         d[jj] = d[jj].astype(float)
-
-        # SNR
-        # d[jj] -= np.median(d[jj], axis=-1)[:, None]
-        # d[jj] /= np.std(d[jj])
-        # d[jj] -= np.median(d[jj], axis=-1, keepdims=True)
-        #
-        # sig = np.std(d[jj])
-        # dmax = (d[jj].copy()).max()
-        # dmed = np.median(d[jj])
-        # N = len(d[jj])
-
-        # remove outliers 4 times until there
-        # are no events above threshold*sigma
-        # thresh=3
-        # for ii in range(4):
-        #     ind = np.where(np.abs(d[jj]-dmed)<thresh*sig)[0]
-        #     sig = np.std(d[jj][ind])
-        #     dmed = np.median(d[jj][ind])
-        #     d[jj] = d[jj][ind]
-        #     N = len(d[jj])
-
-        # d[jj] = (d[jj] - dmed)/(1.048*sig)
-
-        # Plot
-        off = d[jj, :, :4500].mean(1)
+        #d[jj] -= np.median(d[jj], axis=-1)[:, None]
+        off = np.mean(d[jj, :, :4500], axis=1) #d[jj, :, :4500].mean(1)
         d[jj] = (d[jj] - off[:, None]) #/ off[:, None]
-        d[jj] -= np.median(d[jj].mean(0)[:4000])
-        d[jj] /= np.std(d[jj].mean(0)[:4000])
+        d[jj] /= np.std(d[jj])
+        bp_arr = np.std(d[jj][...,
+                int((d[jj].shape[0]-nsamp)/2):int(d[jj].shape[0]/2-nsamp/6)],
+                axis=1)
+        bp_arr[np.where(bp_arr == 0)] = np.mean(bp_arr)
+        d[jj] = np.divide(d[jj].T, bp_arr).T
 
+        # d[jj] -= np.median(d[jj], axis=-1)[:, None]
+        # #d[jj] = rebin(d[jj], [fscrunch,bscrunch])
+        # d[jj] /= np.std(d[jj])
+        # bandpass_arr = np.std(d[jj][...,:int(d[jj].shape[0]/3)], axis=1)
+        # d[jj] = np.divide(d[jj].T, bandpass_arr).T
+        # tmed = np.median(d[jj], axis=-1, keepdims=True)
+        # d[jj] -= tmed
+
+    # Mask
     d[np.isnan(d)] = 0.0
     d[:, f_mask, :] = 0.0
 
     # Burst selection
     wm2 = width_max//2
+    sampmin = int(5000-nsamp/2)
+    sampmax = int(5000+nsamp/2)
     D = d[:, :, sampmin:sampmax] #-d[:,:,:4500, None].mean(-2)
     SS = (d[:, :, 5000-width_max//2:5000+width_max//2].mean(-1))
     #np.save('test%d.npy' % ii, D)
@@ -137,19 +159,21 @@ def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300.,
     Dcal_spectrum += (D[:, :,
             D.shape[-1]//2-width_max//2:D.shape[-1]//2+width_max//2].mean(-1))
 
-    weights_f = 1
+#    weights_f = 1
+    print(P.shape, weights_f.shape)
     PA = np.angle(np.mean(P*weights_f,0),deg=True)
 
     freqArr_Hz = pol.freq_arr*1e6
 
     # Temporal mask. index in mask allowed for PA calculation
     std_I = np.std(d[0, ..., 3900:4900].mean(0))
-    t_mask = np.where(D[0].mean(0) > 5.0*std_I)[0]
+    t_mask = np.where(D[0].mean(0) > 3.5*std_I)[0]
     t_mask = t_mask[np.where(t_mask>50)]
     #t_mask = np.where(D[0].mean(0).reshape(-1,1).mean(1) > 2.0*std_I)[0]
     return D, PA, weights_f, t_mask
 
-def get_i(ff, t0, sb_generator, nsamp=512, bscrunch=2, fscrunch=2, dm=348.75):
+def get_i(ff, t0, sb_generator, nsamp=512, bscrunch=2, fscrunch=2, dm=348.75,
+          tburst=None, rficlean=True, snr=False):
 
     CB = '00'
 
@@ -158,7 +182,8 @@ def get_i(ff, t0, sb_generator, nsamp=512, bscrunch=2, fscrunch=2, dm=348.75):
     header = rawdatafile.header
 
     tstart = header['tstart']  # MJD
-    tburst = float(ff.split('/')[-1].split('_')[3].replace('t', '')) * u.s # s
+    if tburst is None:
+        tburst = float(ff.split('/')[-1].split('_')[3].replace('t', '')) * u.s # s
     mjd = tstart + tburst.to("d").value
 
     nchans = header['nchans']
@@ -173,54 +198,64 @@ def get_i(ff, t0, sb_generator, nsamp=512, bscrunch=2, fscrunch=2, dm=348.75):
     # Getting pulse peak
     full_dm_arr, full_freq_arr, time_res, params = triggers.proc_trigger(
             f, dm, t0, -1,
-            ndm=32, mk_plot=False, downsamp=bscrunch,
-            beamno=CB, fn_mask=None, nfreq_plot=nfreq_plot,
+            ndm=32, mk_plot=False, downsamp=1,
+            beamno=CB, fn_mask=None, nfreq_plot=nchans,
             ntime_plot=ntime_plot,
             cmap='viridis', cand_no=1, multiproc=False,
-            rficlean=True, snr_comparison=-1,
+            rficlean=rficlean, snr_comparison=-1,
             outdir='./data', sig_thresh_local=0.0,
             subtract_zerodm=False,
-            threshold_time=3.25, threshold_frequency=2.75,
-            bin_size=32, n_iter_time=3,
-            n_iter_frequency=3,
+            # threshold_time=3.5, threshold_frequency=2.75,
+            # bin_size=32, n_iter_time=2, n_iter_frequency=3,
+            threshold_time=3.75, threshold_frequency=3.5,
+            bin_size=32, n_iter_time=3, n_iter_frequency=3,
             clean_type='perchannel', freq=1370,
-            sb_generator=sb_generator, sb=35)
+            sb_generator=sb_generator, sb=35, dumb_mask=False)
 
+    full_freq_arr[np.isnan(full_freq_arr)] = 0.0
+    full_freq_arr = rebin(full_freq_arr, [fscrunch,bscrunch])
     ntime_plot = int(nsamp/bscrunch)
     p = np.argmax(np.mean(full_freq_arr, axis=0))
-
     D = full_freq_arr[:, int(p-ntime_plot/2):int(p+ntime_plot/2)]
-    pulse = np.mean(D, axis=0)
+    if D.shape[-1]==0:
+        print("Time axis is length zero")
+        return D, None, None
+
+    pulse = np.nanmean(D, axis=0)
     tsamp = time_res * 1000 # ms
     tval = np.arange(-ntime_plot/2, ntime_plot/2) * tsamp
+#    print(tval.shape, D.shape, pulse) # hack
     tcen = tval[np.argmax(pulse)] * u.ms # ms
     t0 += tcen.to("s").value
-    #print(mjds[ii], tcen, D.shape, t0)
     D = np.flip(D, axis=0)
 
+    # Baseline subtraction
+    baseline = np.median(pulse[:nsamp//4])
+    D -= baseline
+    pulse -= baseline
+    off = np.mean(D[:, :nsamp//4], axis=1) #d[jj, :, :4500].mean(1)
+    D = (D - off[:, None])
+
+    # # Bandpass correction
+    # bp_arr = np.std(D[..., :int(ntime_plot/3)], axis=1)
+    # bp_arr[np.where(bp_arr == 0)] = np.mean(bp_arr)
+    # D = np.divide(D.T, bp_arr).T
+
     # SNR units
-    sig = np.std(D)
-    dmax = (D.copy()).max()
-    dmed = np.median(D)
-    N = len(D)
-
-    # remove outliers 4 times until there
-    # are no events above threshold*sigma
-    # thresh=3
-    # for ii in range(4):
-    #     ind = np.where(np.abs(D-dmed)<thresh*sig)[0]
-    #     sig = np.std(D[ind])
-    #     dmed = np.median(D[ind])
-    #     D = D[ind]
-    #     N = len(D)
-
-    D = (D - dmed)/(1.048*sig)
+    if snr:
+        sig = np.std(D)
+        dmax = (D.copy()).max()
+        dmed = np.median(D)
+        N = len(D)
+        D = (D - dmed)/(1.048*sig)
 
     return D, tval, t0
 
-def iquv_plotter(D, PA, tval, gss, ii, weights_f, t_mask,
-        bscrunch=2, fscrunch=2, tot=34, nsub=34, nfig=1, ncols=4, nrows=6,
-        cmap='viridis', waterfall=False, stokes='iquv', id=None):
+def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
+        nsamp=512, tsamp=8.192e-5, fmin=1220, fmax=1520,
+        bscrunch=2, fscrunch=2, tot=34, nsub=34, nfig=1,
+        ncols=4, nrows=6, cmap='viridis', waterfall=False,
+        stokes='iquv', id=None):
     """
     Plotting IQUV data
     """
@@ -231,6 +266,9 @@ def iquv_plotter(D, PA, tval, gss, ii, weights_f, t_mask,
     ax1 = fig.add_subplot(gss[1, 0])
     nfreq, ntime = D.shape[1]//fscrunch, D.shape[2]//bscrunch
     iquv = [rebin(d, [1,bscrunch]).mean(0) for d in D]
+    if k_fluence is not None:
+        for kk in range(len(iquv)):
+            iquv[kk] = iquv[kk] * k_fluence
     if stokes == 'iquv':
         colors = ['k', '#482677FF', '#238A8DDF', '#95D840FF']
         ax1.plot(tval, iquv[0], color=colors[0], label='I', zorder=10)
@@ -243,20 +281,24 @@ def iquv_plotter(D, PA, tval, gss, ii, weights_f, t_mask,
         ax1.plot(tval, iquv[0], color=colors[0], label='I', zorder=10)
         ax1.plot(tval, L, color=colors[1], ls='-', label='L', zorder=9)
         ax1.plot(tval, iquv[3], color=colors[2],  label='V', zorder=7)
-    ax1.yaxis.set_major_locator(MultipleLocator(5))
-    ax1.set_yticklabels([])
+
+    ax1.yaxis.set_major_locator(MaxNLocator(nbins=2, integer=True))
+    #ax1.set_yticklabels([])
+    ax1.set_ylim(min(iquv[0]*1.1), max(iquv[0]*1.2))
     if id is not None:
         ax1.text(0.05, 0.95, id, horizontalalignment='left',
                 verticalalignment='top', transform=ax1.transAxes)
 
     ax2 = fig.add_subplot(gss[0, 0], sharex=ax1)
     ax2.plot((t_mask - nsamp/2) * tsamp, PA[t_mask], '.', color='k', alpha=0.5, label='PA')
-    PA_arr.append(PA[t_mask])
-    ax2.yaxis.set_major_locator(MultipleLocator(90))
-    ax2.set_ylim(-190,190)
+    #PA_arr.append(PA[t_mask])
+    # ax2.yaxis.set_major_locator(MultipleLocator(90))
+    # ax2.set_ylim(-190,190)
+    ax2.yaxis.set_major_locator(MultipleLocator(30))
+    ax2.set_ylim(-50,50)
     ax2.grid(b=True, axis='y', color='k', alpha=0.1)
 
-    if args.waterfall:
+    if waterfall:
         # TODO: reverse frequencies
         waterfall = rebin(D[0], [fscrunch,bscrunch])
         vmin = np.percentile(waterfall, 1.0)
@@ -271,50 +313,54 @@ def iquv_plotter(D, PA, tval, gss, ii, weights_f, t_mask,
         else:
             ax4.set_xticklabels([])
         if (ii%ncols == 0):
-            ax4.set_ylabel('Frequency (MHz)')
+            #ax4.set_ylabel('Frequency (MHz)')
+            if k_fluence is not None:
+                # ax1.set_ylabel('Flux (Jy)')
+                ax1.set_ylabel('Flux\n(mJy)')
+            ax2.set_ylabel('PA\n(deg)')
+            ax4.set_ylabel('Frequency\n(MHz)')
+            for ax in (ax1,ax2, ax4):
+                ax.yaxis.set_label_coords(-0.15, 0.5)
+            #fig.align_ylabels(ax1,ax2,ax4)
         else:
+            ax2.set_yticklabels([])
             ax4.set_yticklabels([])
         axes = (ax1,ax2,ax4)
     else:
         if (ii >= nsub - ncols):
+            #ax1.set_xlabel('Time (ms)')
             ax1.set_xlabel('Time (ms)')
         else:
             ax1.set_xticklabels([])
         axes = (ax1,ax2)
-    if (ii%ncols != 0):
-        ax2.set_yticklabels([])
-    else:
-        ax2.set_ylabel('PA')
 
     for ax in axes:
-        # ax.tick_params(axis='x', which='both', direction='in', bottom=True,
-        #         top=True)
-        # ax.tick_params(axis='y', which='both', direction='in', left=True,
-        #         right=True)
         ax.label_outer()
 
-def snippet_plotter(D, tval, gss, ii, t0=None, tot=34, nsub=34,
-        nfig=1, ncols=4, nrows=6,
+def snippet_plotter(D, tval, fig, gss, ii, t0=None, tot=34, nsub=34,
+        nfig=1, ncols=4, nrows=6, k_fluence=None, fmin=1220, fmax=1520,
         cmap='viridis', waterfall=False, id=None):
     """
     Plotting I data
     """
 
-    pulse = np.mean(D, axis=0)
-    #colors = ['#577590', '#90be6d', '#f8961e', '#f94144']
+    pulse = np.nanmean(D, axis=0)
+    if k_fluence is not None:
+        pulse = pulse * k_fluence
     colors = ['#080808', '#525252', '#858585', '#C2C2C2']
 
     ax1 = fig.add_subplot(gss[1,0])
     ax1.plot(tval, pulse, color='k')
-    ax1.yaxis.set_major_locator(MultipleLocator(1))
-    ax1.set_yticklabels([])
+    ax1.yaxis.set_major_locator(MaxNLocator(nbins=2, integer=True))
+    #ax1.set_yticklabels([])
+    ax1.set_ylim(min(pulse*1.1), max(pulse*1.2))
     if id is not None:
         ax1.text(0.05, 0.95, id, horizontalalignment='left',
                 verticalalignment='top', transform=ax1.transAxes)
     # if t0 is not None:
     #     ax1.scatter((t0-5)*1e3, np.max(pulse) -1)
 
-    if args.waterfall:
+    if waterfall:
         #TODO: reverse frequencies
         ax4 = fig.add_subplot(gss[2,0], sharex=ax1)
         vmin = np.percentile(D, 1.0)
@@ -329,21 +375,25 @@ def snippet_plotter(D, tval, gss, ii, t0=None, tot=34, nsub=34,
         else:
             ax4.set_xticklabels([])
         if (ii%ncols == 0):
-            ax4.set_ylabel('Frequency (MHz)')
+            # ax4.set_ylabel('Frequency (MHz)')
+            if k_fluence is not None:
+                # ax1.set_ylabel('Flux (Jy)')
+                ax1.set_ylabel('Flux\n(mJy)')
+            ax4.set_ylabel('Frequency\n(MHz)')
+            for ax in (ax1, ax4):
+                ax.yaxis.set_label_coords(-0.15, 0.5)
+            #fig.align_ylabels(ax1,ax4)
         else:
             ax4.set_yticklabels([])
     else:
         if (ii >= nsub - ncols):
+            # ax1.set_xlabel('Time (ms)')
             ax1.set_xlabel('Time (ms)')
         else:
             ax1.set_xticklabels([])
         axes = (ax1)
 
     for ax in axes:
-        # ax.tick_params(axis='x', which='both', direction='in', bottom=True,
-        #         top=True)
-        # ax.tick_params(axis='y', which='both', direction='in', left=True,
-        #         right=True)
         ax.label_outer()
 
 
@@ -374,12 +424,13 @@ if __name__=='__main__':
             default=False, help='Create waterfall plot')
     parser.add_argument('-s','--show', action='store_true',
             default=False, help='Show waterfall plot')
+    parser.add_argument('-norfi','--norfi', action='store_true',
+            default=False, help='Do not rfi clean .fil data')
     parser.add_argument('--save_npy', action='store_true',
             default=False,
             help='Save numpy arrays of the plotted dynamic spectra')
 
     args = parser.parse_args()
-
 
     # Parameters:
     nsamp = args.nsamp
@@ -393,23 +444,25 @@ if __name__=='__main__':
     file_info  = open(fname, "r")
     lines = file_info.readlines()
 
-    fl, fn_xyphase, mjds, t0s = [], [], [], []
+    fl, fn_xyphase, fn_bandpass, mjds, t0s = [], [], [], [], []
     for line in lines:
         if '#' not in line:
             cols = line.split(' ')
             mjds.append(float(cols[0]))
             fl.append(cols[1])
             if cols[1][-4:] == '.npy':
-                fn_xyphase.append(cols[2].replace('\n', ''))
+                fn_xyphase.append(cols[2])
+                fn_bandpass.append(cols[3].replace('\n', ''))
                 t0s.append(None)
             elif cols[1][-4:] == '.fil':
                 fn_xyphase.append(None)
+                fn_bandpass.append(None)
                 t0s.append(float(cols[2]))
     file_info.close()
     tot = len(fl)
 
     # Defining bandpass
-    bandpass = np.load('/tank/data/FRBs/FRB200419/20200419/iquv/CB32/polcal/bandpass.npy')
+    #bandpass = np.load('/tank/data/FRBs/FRB200419/20200419/iquv/CB32/polcal/bandpass.npy')
 
     # Example dada header:rebin
     fndada = '/tank/data/FRBs/R3/20200322/iquv/CB00/dada/2020-03-22-10:03:39_0004130611200000.000000.dada'
@@ -418,8 +471,6 @@ if __name__=='__main__':
     fmin = header['freq'] - header['bw'] / 2
     fmax = header['freq'] + header['bw'] / 2
     tsamp = header['tsamp'] * 1000. # ms
-    sampmin = int(5000-nsamp/2)
-    sampmax = int(5000+nsamp/2)
 
     sb_generator = triggers.SBGenerator.from_science_case(science_case=4)
     sb_generator.reversed = True
@@ -438,30 +489,50 @@ if __name__=='__main__':
         ncols, nrows = 4,5
         plt_out = ['./R3_IQUV_PA_{}.pdf'.format(i) for i in range(args.nfig)]
 
-    for ii,ff in enumerate(fl):
+    # Fluence
+    t_res = 0.8192*1e-4 # s
+    f_res = 0.1953125 * 1e6 # Hz
+    t_cal = t_res*1e4 # s
+    nfreq=1536
+    Ndish = 10.0
+    IAB = True
+    NPOL = 2
+    BW = 3e8 # Hz
+    src = '3C147'
+    driftscan = np.load('/tank/data/FRBs/R3/driftscan/'\
+            + '2020-08-27-04:45:00.3C147drift00/'\
+            + 'CB00_00_downsamp10000_dt0.819.npy')
+
+    CalTools = CalibrationTools(t_res=t_cal, Ndish=Ndish, IAB=IAB, nfreq=nfreq)
+    tsys_rms = CalTools.tsys_rms_allfreq(driftscan, off_samp=(0, 200), src=src)
+    sefd_rms = CalTools.tsys_to_sefd(tsys_rms)
+
+    k_fluence = np.median(sefd_rms)/np.sqrt(NPOL*f_res*t_res) # mJy
+
+    for ii,ff in enumerate(fl[:]):
 
         burst_id = 'A{:02}'.format(ii+1)
         mjd = mjds[ii]
-
         # Plotting
         # Defining subplot number within figure
         if args.nfig == 1:
             jj, fign, nsub = ii, 0, tot
         elif args.nfig == 2:
             if ii < tot//2:
-                jj, fign, nsub = ii, 0, tot//2
+                jj, fign, nsub = ii, 0, ncols*nrows-1
             else:
-                jj, fign, nsub = ii - tot//2, 1, tot//2 + tot%2
+                jj, fign, nsub = ii - tot//2, 1, tot - (ncols*nrows-1)
         else:
-            if ii < tot//3:
-                jj, fign, nsub = ii, 0, tot//3
-            elif ii < 2 * tot//3:
-                jj, fign, nsub = ii - (tot//3), 1, tot//3
+            if ii < ncols*nrows-1:
+                jj, fign, nsub = ii, 0, ncols*nrows-1
+            elif ii < 2 * (ncols*nrows-1):
+                jj, fign, nsub = ii - (ncols*nrows-1), 1, ncols*nrows-1
             else:
-                jj, fign, nsub = ii - 2 * (tot//3), 2, tot//3
+                jj, fign, nsub = ii - 2*(ncols*nrows-1), 2, tot - 2*(ncols*nrows-1)
 
         if jj == 0:
-            fig = plt.figure(fign, figsize=(21,29))
+            # fig = plt.figure(fign, figsize=(21,29))
+            fig = plt.figure(fign, figsize=(21,27))
             plt.rcParams.update({
                     'font.size': 18,
                     'font.family': 'serif',
@@ -471,8 +542,6 @@ if __name__=='__main__':
                     'ytick.labelsize': 12,
                     'xtick.direction': 'in',
                     'ytick.direction': 'in',
-                    # 'xtick.minor.visible': True,
-                    # 'ytick.minor.visible': True,
                     'xtick.top': True,
                     'ytick.right': True,
                     'lines.linewidth': 0.5,
@@ -481,7 +550,8 @@ if __name__=='__main__':
                     'legend.borderaxespad': 0,
                     'legend.frameon': False,
                     'legend.loc': 'lower right'})
-            gs = gridspec.GridSpec(nrows,ncols, hspace=0.05, wspace=0.05)
+
+            gs = gridspec.GridSpec(nrows,ncols, hspace=0.1, wspace=0.1)
 
         print(burst_id, jj, jj//ncols, jj%ncols, nsub)
 
@@ -501,10 +571,13 @@ if __name__=='__main__':
             tval = np.arange(-ts, ts) * tsamp * bscrunch
 
             D, PA, wf, tm = get_pa_iquv(d, fn_xyphase[ii],
+                    fn_bandpass=fn_bandpass[ii], nsamp=nsamp,
+                    bscrunch=bscrunch, fscrunch=fscrunch, id=burst_id,
                     nfreq=nfreq, ntime=ntime, bw=bw, fmin=fmin, fmax=fmax)
-            iquv_plotter(D, PA, tval, gss, jj, wf, tm, bscrunch=bscrunch,
-                    fscrunch=fscrunch, tot=tot, nsub=nsub, nfig=args.nfig,
-                    ncols=ncols, nrows=nrows, cmap=args.cmap,
+            iquv_plotter(D, PA, tval, fig, gss, jj, wf, tm, k_fluence=k_fluence,
+                    nsamp=nsamp, bscrunch=bscrunch, tsamp=tsamp, fmin=fmin,
+                    fmax=fmax, fscrunch=fscrunch, tot=tot, nsub=nsub,
+                    nfig=args.nfig, ncols=ncols, nrows=nrows, cmap=args.cmap,
                     waterfall=args.waterfall, stokes=stokes, id=burst_id)
             if args.save_npy:
                 fnout = 'R3_mjd{:.6f}_dedisp348.8'.format(mjd)
@@ -520,27 +593,33 @@ if __name__=='__main__':
             print(snr, width)
 
         if ff[-4:] == '.fil':
-            D, tval, t0 = get_i(ff, t0s[ii], sb_generator, nsamp=nsamp,
-                    bscrunch=bscrunch, fscrunch=fscrunch, dm=args.dm)
-            snippet_plotter(D, tval, gss, jj, t0, tot=tot, nfig=args.nfig,
+            if burst_id in ["A36", "A37", "A38", "A39", "A42", "A43", "A45",
+                    "A46", "A47", "A48", "A49", "A50", "A51", "A52"]:
+                D, tval, t0 = get_i(ff, t0s[ii], sb_generator, nsamp=nsamp,
+                        bscrunch=bscrunch, fscrunch=fscrunch, dm=args.dm,
+                        rficlean=True)
+            else:
+                D, tval, t0 = get_i(ff, t0s[ii], sb_generator, nsamp=nsamp,
+                        bscrunch=bscrunch, fscrunch=fscrunch, dm=args.dm,
+                        rficlean=not(args.norfi))
+            if tval is None:
+                continue
+            snippet_plotter(D, tval, fig, gss, jj, t0, k_fluence=k_fluence,
+                    tot=tot, nfig=args.nfig, fmin=fmin, fmax=fmax,
                     nsub=nsub, ncols=ncols, nrows=nrows, cmap=args.cmap,
                     waterfall=args.waterfall, id=burst_id)
             if args.save_npy:
                 fnout = 'R3_mjd{:.6f}_dedisp348.8'.format(mjd)
-                # np_out = '/home/arts/pastor/scripts/arts-analysis/iquv_npy/' \
-                #         + fnout
                 np_out = '/home/arts/pastor/R3/fluxcal/i_npy/' \
                         + fnout
                 print('saving', np_out)
                 np.save(np_out, D)
             print(mjd, 'Ifil', np.mean(D), np.median(D), np.std(D))
 
-
+        # Adding legend
         if jj == nsub-1:
-            # Adding legend
             ll = jj+1
             ax = fig.add_subplot(gs[nrows-1,ncols-1])
-            #fig.patch.set_visible(False)
             ax.axis('off')
             if stokes == 'iquv':
                 colors = ['k', '#482677FF', '#238A8DDF', '#95D840FF']
