@@ -1,7 +1,8 @@
 from __future__ import print_function
 from __future__ import division
 import numpy as np
-import glob
+import pandas as pd
+import glob, sys
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import (AutoMinorLocator, MultipleLocator, MaxNLocator)
@@ -11,12 +12,15 @@ import astropy.units as u
 import datetime
 import argparse
 from pypulsar.formats import filterbank
+
+# Local imports
 import tools
 import pol
 import read_IQUV_dada
 import reader
 import triggers
 from calibration_tools import run_fluxcal, CalibrationTools, Plotter
+from frbpa.utils import get_phase
 SNRtools = tools.SNR_Tools()
 
 # Example usage
@@ -24,7 +28,7 @@ SNRtools = tools.SNR_Tools()
 # -n 512 -s --nfig 3 --save_npy --cmap viridis
 
 # --------------------------------------------------------------------- #
-# Rebin function
+# User defined functions
 # --------------------------------------------------------------------- #
 
 def rebin(arr, binsz):
@@ -34,6 +38,9 @@ def rebin(arr, binsz):
              new_shape[1], arr.shape[1] // new_shape[1])
     return arr.reshape(shape).mean(-1).mean(1)
 
+def get_cycle(bursts, period, ref_mjd=58369.30):
+    return ((np.array(bursts) - ref_mjd) // period)
+
 def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300., nsamp=512,
                 bscrunch=2, fscrunch=2, id=None,
                 fmin=1219.50561523, fmax=1519.50561523, fn_bandpass=None):
@@ -41,7 +48,6 @@ def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300., nsamp=512,
     Getting PA values from IQUV array after callibration and bandpass correction
     """
 
-    #print('{} {} {}'.format(ff, fn_xyphase[ii], mjds[ii]))
     XYduncal,XYdcal = 0,0
     SS=0
     Dcal_spectrum=0
@@ -167,7 +173,7 @@ def get_pa_iquv(d, fn_xyphase, nfreq=1536, ntime=1e4, bw=300., nsamp=512,
 
     # Temporal mask. index in mask allowed for PA calculation
     std_I = np.std(d[0, ..., 3900:4900].mean(0))
-    t_mask = np.where(D[0].mean(0) > 3.5*std_I)[0]
+    t_mask = np.where(D[0].mean(0) > 4.5*std_I)[0]
     t_mask = t_mask[np.where(t_mask>50)]
     #t_mask = np.where(D[0].mean(0).reshape(-1,1).mean(1) > 2.0*std_I)[0]
     return D, PA, weights_f, t_mask
@@ -223,8 +229,7 @@ def get_i(ff, t0, sb_generator, nsamp=512, bscrunch=2, fscrunch=2, dm=348.75,
 
     pulse = np.nanmean(D, axis=0)
     tsamp = time_res * 1000 # ms
-    tval = np.arange(-ntime_plot/2, ntime_plot/2) * tsamp
-#    print(tval.shape, D.shape, pulse) # hack
+    tval = np.arange(-ntime_plot/2, ntime_plot/2) * tsamp * bscrunch
     tcen = tval[np.argmax(pulse)] * u.ms # ms
     t0 += tcen.to("s").value
     D = np.flip(D, axis=0)
@@ -255,7 +260,7 @@ def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
         nsamp=512, tsamp=8.192e-5, fmin=1220, fmax=1520,
         bscrunch=2, fscrunch=2, tot=34, nsub=34, nfig=1,
         ncols=4, nrows=6, cmap='viridis', waterfall=False,
-        stokes='iquv', id=None):
+        stokes='iquv', id=None, cycle=False, cycle_color=None):
     """
     Plotting IQUV data
     """
@@ -283,7 +288,6 @@ def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
         ax1.plot(tval, iquv[3], color=colors[2],  label='V', zorder=7)
 
     ax1.yaxis.set_major_locator(MaxNLocator(nbins=2, integer=True))
-    #ax1.set_yticklabels([])
     ax1.set_ylim(min(iquv[0]*1.1), max(iquv[0]*1.2))
     if id is not None:
         ax1.text(0.05, 0.95, id, horizontalalignment='left',
@@ -291,9 +295,8 @@ def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
 
     ax2 = fig.add_subplot(gss[0, 0], sharex=ax1)
     ax2.plot((t_mask - nsamp/2) * tsamp, PA[t_mask], '.', color='k', alpha=0.5, label='PA')
-    #PA_arr.append(PA[t_mask])
     # ax2.yaxis.set_major_locator(MultipleLocator(90))
-    # ax2.set_ylim(-190,190)
+#    ax2.set_ylim(-190,190)
     ax2.yaxis.set_major_locator(MultipleLocator(30))
     ax2.set_ylim(-50,50)
     ax2.grid(b=True, axis='y', color='k', alpha=0.1)
@@ -313,22 +316,18 @@ def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
         else:
             ax4.set_xticklabels([])
         if (ii%ncols == 0):
-            #ax4.set_ylabel('Frequency (MHz)')
             if k_fluence is not None:
-                # ax1.set_ylabel('Flux (Jy)')
                 ax1.set_ylabel('Flux\n(mJy)')
             ax2.set_ylabel('PA\n(deg)')
             ax4.set_ylabel('Frequency\n(MHz)')
             for ax in (ax1,ax2, ax4):
                 ax.yaxis.set_label_coords(-0.15, 0.5)
-            #fig.align_ylabels(ax1,ax2,ax4)
         else:
             ax2.set_yticklabels([])
             ax4.set_yticklabels([])
         axes = (ax1,ax2,ax4)
     else:
         if (ii >= nsub - ncols):
-            #ax1.set_xlabel('Time (ms)')
             ax1.set_xlabel('Time (ms)')
         else:
             ax1.set_xticklabels([])
@@ -337,9 +336,17 @@ def iquv_plotter(D, PA, tval, fig, gss, ii, weights_f, t_mask, k_fluence=None,
     for ax in axes:
         ax.label_outer()
 
+    if cycle is not None:
+        if cycle_color is None:
+            cycle_color='w'
+        ax1.text(0.95, 0.95, "C{:.0f}".format(cycle),
+                horizontalalignment='right',
+                verticalalignment='top', transform=ax1.transAxes,
+                color=cycle_color, fontweight='bold')
+
 def snippet_plotter(D, tval, fig, gss, ii, t0=None, tot=34, nsub=34,
         nfig=1, ncols=4, nrows=6, k_fluence=None, fmin=1220, fmax=1520,
-        cmap='viridis', waterfall=False, id=None):
+        cmap='viridis', waterfall=False, id=None, cycle=None, cycle_color=None):
     """
     Plotting I data
     """
@@ -352,13 +359,10 @@ def snippet_plotter(D, tval, fig, gss, ii, t0=None, tot=34, nsub=34,
     ax1 = fig.add_subplot(gss[1,0])
     ax1.plot(tval, pulse, color='k')
     ax1.yaxis.set_major_locator(MaxNLocator(nbins=2, integer=True))
-    #ax1.set_yticklabels([])
     ax1.set_ylim(min(pulse*1.1), max(pulse*1.2))
     if id is not None:
         ax1.text(0.05, 0.95, id, horizontalalignment='left',
                 verticalalignment='top', transform=ax1.transAxes)
-    # if t0 is not None:
-    #     ax1.scatter((t0-5)*1e3, np.max(pulse) -1)
 
     if waterfall:
         #TODO: reverse frequencies
@@ -368,34 +372,37 @@ def snippet_plotter(D, tval, fig, gss, ii, t0=None, tot=34, nsub=34,
         ax4.imshow(D, interpolation='nearest', aspect='auto', origin='lower',
                 cmap=cmap, vmin=vmin, vmax=vmax,
                 extent=[tval[0], tval[-1], fmin, fmax])
-        axes = (ax1,ax4)
+        axes = [ax1,ax4]
 
         if (ii >= nsub - ncols):
             ax4.set_xlabel('Time (ms)')
         else:
             ax4.set_xticklabels([])
         if (ii%ncols == 0):
-            # ax4.set_ylabel('Frequency (MHz)')
             if k_fluence is not None:
-                # ax1.set_ylabel('Flux (Jy)')
                 ax1.set_ylabel('Flux\n(mJy)')
             ax4.set_ylabel('Frequency\n(MHz)')
             for ax in (ax1, ax4):
                 ax.yaxis.set_label_coords(-0.15, 0.5)
-            #fig.align_ylabels(ax1,ax4)
         else:
             ax4.set_yticklabels([])
     else:
         if (ii >= nsub - ncols):
-            # ax1.set_xlabel('Time (ms)')
             ax1.set_xlabel('Time (ms)')
         else:
             ax1.set_xticklabels([])
-        axes = (ax1)
+        axes = [ax1]
 
     for ax in axes:
         ax.label_outer()
 
+    if cycle is not None:
+        if cycle_color is None:
+            cycle_color='w'
+        ax1.text(0.95, 0.95, "C{:.0f}".format(cycle),
+                horizontalalignment='right',
+                verticalalignment='top', transform=ax1.transAxes,
+                color=cycle_color, fontweight='bold')
 
 # --------------------------------------------------------------------- #
 # Input parameters
@@ -404,8 +411,6 @@ def snippet_plotter(D, tval, fig, gss, ii, t0=None, tot=34, nsub=34,
 if __name__=='__main__':
 
     parser = argparse.ArgumentParser(description='Commands for plotting IQUV data')
-    # parser.add_argument('files', nargs='+', default=None
-    # 					help='The chosen files')
     parser.add_argument('-f','--fscrunch', type=int, default=2,
     		help='Factor to scrunch the number of channels')
     parser.add_argument('-b','--bscrunch', type=int, default=2,
@@ -429,6 +434,9 @@ if __name__=='__main__':
     parser.add_argument('--save_npy', action='store_true',
             default=False,
             help='Save numpy arrays of the plotted dynamic spectra')
+    parser.add_argument('--cycle', action='store_true',
+            default=False,
+            help='Plot a line between bursts from different activity cycles')
 
     args = parser.parse_args()
 
@@ -440,29 +448,31 @@ if __name__=='__main__':
 
     # Defining numpy files to plot
     datadir = '/tank/data/FRBs/R3/'
-    fname = '/home/arts/pastor/R3/plots/filenames.txt'
-    file_info  = open(fname, "r")
-    lines = file_info.readlines()
-
-    fl, fn_xyphase, fn_bandpass, mjds, t0s = [], [], [], [], []
-    for line in lines:
-        if '#' not in line:
-            cols = line.split(' ')
-            mjds.append(float(cols[0]))
-            fl.append(cols[1])
-            if cols[1][-4:] == '.npy':
-                fn_xyphase.append(cols[2])
-                fn_bandpass.append(cols[3].replace('\n', ''))
-                t0s.append(None)
-            elif cols[1][-4:] == '.fil':
-                fn_xyphase.append(None)
-                fn_bandpass.append(None)
-                t0s.append(float(cols[2]))
-    file_info.close()
-    tot = len(fl)
-
-    # Defining bandpass
-    #bandpass = np.load('/tank/data/FRBs/FRB200419/20200419/iquv/CB32/polcal/bandpass.npy')
+    # fname = '/home/arts/pastor/R3/plots/filenames.txt'
+    # file_info  = open(fname, "r")
+    # lines = file_info.readlines()
+    #
+    # fl, fn_xyphase, fn_bandpass, mjds, t0s = [], [], [], [], []
+    # for line in lines:
+    #     if '#' not in line:
+    #         cols = line.split(' ')
+    #         mjds.append(float(cols[0]))
+    #         fl.append(cols[1])
+    #         if cols[1][-4:] == '.npy':
+    #             fn_xyphase.append(cols[2])
+    #             fn_bandpass.append(cols[3].replace('\n', ''))
+    #             t0s.append(None)
+    #         elif cols[1][-4:] == '.fil':
+    #             fn_xyphase.append(None)
+    #             fn_bandpass.append(None)
+    #             t0s.append(float(cols[2]))
+    # file_info.close()
+    # tot = len(fl)
+    fname = '/home/arts/pastor/R3/arts_r3_properties.csv'
+    burst_data = pd.read_csv(fname)
+    tot = len(burst_data.index)
+    mjds = np.array(burst_data['detection_mjd'])
+    print("PLOTTING", tot, "BURSTS")
 
     # Example dada header:rebin
     fndada = '/tank/data/FRBs/R3/20200322/iquv/CB00/dada/2020-03-22-10:03:39_0004130611200000.000000.dada'
@@ -508,11 +518,45 @@ if __name__=='__main__':
     sefd_rms = CalTools.tsys_to_sefd(tsys_rms)
 
     k_fluence = np.median(sefd_rms)/np.sqrt(NPOL*f_res*t_res) # mJy
+    PA_arr=[]
+    phase_arr=[]
 
-    for ii,ff in enumerate(fl[:]):
+    # Defining cycle colors
+    if args.cycle:
+        cycles = np.unique(get_cycle(mjds, 16.29, ref_mjd=58369.90))
+        print("CYCLES", cycles)
+        cycle_colors = ['#577590', '#90be6d', '#f9c74f', '#f8961e', '#f94144']
 
-        burst_id = 'A{:02}'.format(ii+1)
-        mjd = mjds[ii]
+
+    # ----------------------------------------------------------------- #
+    # Starting loop on bursts
+    # ----------------------------------------------------------------- #
+    #for ii,ff in enumerate(fl[:]):
+    for ii,burst in burst_data.iterrows():
+
+        # burst_id = 'A{:02}'.format(ii+1)
+        # mjd = mjds[ii]
+
+        burst_id = burst['paper_name']
+        mjd = burst['detection_mjd']
+        ffil = burst['file_location']
+        fnpy = burst['iquv']
+        fn_xyphase = burst['xyphase']
+        fn_bandpass = burst['bandpass']
+        t0 = burst['t_peak']
+
+        print(fnpy, type(fnpy), pd.isnull(fnpy))
+
+        # Distinguising burst cycles
+        #cycle = False
+        cycle = None
+        cycle_color = None
+        if args.cycle:
+            if (ii == 0) or (mjd - mjds[ii-1] > 3):
+                cycle = get_cycle(mjd, 16.29, ref_mjd=58369.90)
+                col = np.where(cycles == cycle)[0]
+                cycle_color = cycle_colors[int(col)]
+
         # Plotting
         # Defining subplot number within figure
         if args.nfig == 1:
@@ -531,7 +575,6 @@ if __name__=='__main__':
                 jj, fign, nsub = ii - 2*(ncols*nrows-1), 2, tot - 2*(ncols*nrows-1)
 
         if jj == 0:
-            # fig = plt.figure(fign, figsize=(21,29))
             fig = plt.figure(fign, figsize=(21,27))
             plt.rcParams.update({
                     'font.size': 18,
@@ -564,21 +607,34 @@ if __name__=='__main__':
                     subplot_spec=gs[jj//ncols,jj%ncols], hspace=0, wspace=0,
                     height_ratios=[1,3])
 
-        if ff[-4:] == '.npy':
-            d = np.load(ff)
+        #if ff[-4:] == '.npy':
+        if not pd.isnull(fnpy):
+            d = np.load(fnpy) #np.load(ff)
             nfreq,ntime = d.shape[1],d.shape[2]
             ts = nsamp/(2*bscrunch)
             tval = np.arange(-ts, ts) * tsamp * bscrunch
 
-            D, PA, wf, tm = get_pa_iquv(d, fn_xyphase[ii],
-                    fn_bandpass=fn_bandpass[ii], nsamp=nsamp,
+            D, PA, wf, tm = get_pa_iquv(d, fn_xyphase,
+                    fn_bandpass=fn_bandpass, nsamp=nsamp,
                     bscrunch=bscrunch, fscrunch=fscrunch, id=burst_id,
                     nfreq=nfreq, ntime=ntime, bw=bw, fmin=fmin, fmax=fmax)
             iquv_plotter(D, PA, tval, fig, gss, jj, wf, tm, k_fluence=k_fluence,
                     nsamp=nsamp, bscrunch=bscrunch, tsamp=tsamp, fmin=fmin,
                     fmax=fmax, fscrunch=fscrunch, tot=tot, nsub=nsub,
                     nfig=args.nfig, ncols=ncols, nrows=nrows, cmap=args.cmap,
-                    waterfall=args.waterfall, stokes=stokes, id=burst_id)
+                    waterfall=args.waterfall, stokes=stokes, id=burst_id,
+                    cycle=cycle, cycle_color=cycle_color)
+
+            # Liam
+            aphase = get_phase(mjd, 16.29, ref_mjd=58369.90)
+            std_I = np.std(D[0,...,:4500].mean(0))
+            sig_arr_time = D[0].mean(0)/std_I
+            PA_weighted = (PA[tm]*sig_arr_time[tm]**2/(sig_arr_time[tm]**2).mean()).mean()
+#            PAerr = 180./np.pi*(P.mean(0).real**2*sigU**2 + P.mean(0).imag**2*sigQ**2)**0.5 / (2*np.abs(P.mean(0))**2)
+            PA_arr.append(PA_weighted)
+#            PA_arr_err.append(np.mean(PAerr[t_mask])/np.sqrt(float(len(t_mask))))
+            phase_arr.append(aphase)
+
             if args.save_npy:
                 fnout = 'R3_mjd{:.6f}_dedisp348.8'.format(mjd)
                 # np_out = '/home/arts/pastor/scripts/arts-analysis/iquv_npy/' \
@@ -587,19 +643,18 @@ if __name__=='__main__':
                         + fnout
                 print('saving', np_out)
                 np.save(np_out, D[0])
-            print(mjd, 'IQUV', np.mean(D[0]), np.median(D[0]), np.std(D[0]))
+
             pulse = rebin(D[0], [1,bscrunch]).mean(0)
             (snr, width) = SNRtools.calc_snr_matchedfilter(pulse, widths=range(500))
-            print(snr, width)
 
-        if ff[-4:] == '.fil':
+        else:
             if burst_id in ["A36", "A37", "A38", "A39", "A42", "A43", "A45",
                     "A46", "A47", "A48", "A49", "A50", "A51", "A52"]:
-                D, tval, t0 = get_i(ff, t0s[ii], sb_generator, nsamp=nsamp,
+                D, tval, t0 = get_i(ffil, t0, sb_generator, nsamp=nsamp,
                         bscrunch=bscrunch, fscrunch=fscrunch, dm=args.dm,
                         rficlean=True)
             else:
-                D, tval, t0 = get_i(ff, t0s[ii], sb_generator, nsamp=nsamp,
+                D, tval, t0 = get_i(ffil, t0, sb_generator, nsamp=nsamp,
                         bscrunch=bscrunch, fscrunch=fscrunch, dm=args.dm,
                         rficlean=not(args.norfi))
             if tval is None:
@@ -607,7 +662,8 @@ if __name__=='__main__':
             snippet_plotter(D, tval, fig, gss, jj, t0, k_fluence=k_fluence,
                     tot=tot, nfig=args.nfig, fmin=fmin, fmax=fmax,
                     nsub=nsub, ncols=ncols, nrows=nrows, cmap=args.cmap,
-                    waterfall=args.waterfall, id=burst_id)
+                    waterfall=args.waterfall, id=burst_id, cycle=cycle,
+                    cycle_color=cycle_color)
             if args.save_npy:
                 fnout = 'R3_mjd{:.6f}_dedisp348.8'.format(mjd)
                 np_out = '/home/arts/pastor/R3/fluxcal/i_npy/' \
@@ -639,7 +695,10 @@ if __name__=='__main__':
             print('Saving plot to ', plt_out[fign])
             fig.savefig(plt_out[fign], pad_inches=0, bbox_inches='tight')
 
-    #np.save('PAs.npy',PA_arr)
+
+#    plt.figure()
+#    plt.plot(phase_arr, PA_arr,'.')
+#    np.save('PAs.npy',PA_arr)
 
     if args.show:
         plt.show()
