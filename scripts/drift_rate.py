@@ -7,6 +7,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.optimize import curve_fit
+from scipy.stats import norm
+from lmfit import Model, Parameters
 import tools
 from frbpa.utils import get_phase, get_cycle
 from astropy.time import Time
@@ -64,6 +66,33 @@ def powlaw(x, *p):
     res = c * x ** (a)
     return res
 
+def lmfit_fit(model, pars, x, y, err):
+    model = Model(model)
+    print(model.param_names)
+    params = Parameters()
+    for j,p in enumerate(model.param_names):
+         params.add(p, value=pars[j])
+    result = model.fit(y, params, x=x, weights=1/err)
+    popt, perr = [], []
+    for j,p in enumerate(model.param_names):
+        popt.append(result.params.get(p).value)
+        perr.append(result.params.get(p).stderr)
+    return popt, perr
+
+def drift_error(x, y, xerr, yerr, model, num=10):
+    "Getting drift rate errors through simulations"
+    drift_sim = np.zeros(num)
+    freq_sim = np.zeros(num)
+    xsim = np.array([norm.rvs(loc=x[i], scale=xerr[i], size=num)
+            for i in range(len(x))])
+    ysim = np.array([norm.rvs(loc=y[i], scale=yerr[i], size=num)
+            for i in range(len(y))])
+    for i in range(num):
+        coeff, _ = curve_fit(model, xsim[:,i], ysim[:,i])
+        drift_sim[i] = coeff[0]
+        freq_sim[i] = coeff[1]
+    return [np.std(drift_sim), np.std(freq_sim)]
+
 # Opening data
 burst_data = pd.read_csv(
         '/home/ines/Documents/projects/R3/arts/arts_r3_properties.csv')
@@ -83,7 +112,7 @@ mjd = burst['detection_mjd'].values[0]
 print(data_path + "*{:.6f}*".format(mjd))
 fn = glob.glob(data_path + "*{:.6f}*".format(mjd))[0] #file_info['file_'][ii]
 print(fn)
-dm = 348.80 #file_info['dm'][ii]
+dm = 348.75 #file_info['dm'][ii]
 ncomp = int(burst['ncomp'].values[0]) #file_info['ncomp'][ii]
 
 pmax=99.5
@@ -180,7 +209,7 @@ plt.show()
 # Fitting pulse to gaussians
 # p0 is the initial guess for the fitting coefficients (A, mu and sigma above)
 if ncomp == 2:
-    print("Fitting 3 components")
+    print("Fitting 2 components")
 
     # Fitting
     coeff_p, var_matrix_p = curve_fit(double_gaussian, tval, pulse, p0=p0)
@@ -276,32 +305,30 @@ print("\nCentral frequency", np.mean(coeff_s[:,1]))
 
 # Fitting drift rate
 if ncomp > 1:
-    tdrift = [c[1] for c in coeff_p]
-    terr = [e[1] for e in err_p]
-    fdrift = [c[1] for c in coeff_s]
-    ferr = [e[1] for e in err_s]
+    tdrift = np.array([c[1] for c in coeff_p])
+    terr = np.array([e[1] for e in err_p])
+    fdrift = np.array([c[1] for c in coeff_s])
+    ferr = np.array([e[1] for e in err_s])
 
-    d0 = [-4.2, 0]
+    d0 = np.array([-4.2, 0])
 
     coeff, var_matrix = curve_fit(drift, tdrift, fdrift, p0=d0, sigma=ferr)
-    f0 = coeff[1]
-    drift_err = np.sqrt(np.diag(var_matrix))
+    drift_fit = drift(tval, *coeff)
+    if ncomp == 2:
+        drift_err = drift_error(tdrift, fdrift, terr, ferr, drift, num=10000)
+    else:
+        drift_err = np.sqrt(np.diag(var_matrix))
 
-    # Freezing one component
-    coeff, var_matrix = curve_fit(lambda x, dft: drift(x, dft, f0), tdrift, fdrift, sigma=ferr)
-    r_drift = coeff[0]
-
-    drift_fit = drift(tval, r_drift, f0)
-    drift_err[0] = np.sqrt(var_matrix[0,0])
-
-    print([r_drift, f0], drift_err)
+    print(coeff, drift_err)
     print('Drift rate: {:.4f} +- {:.4f} MHz/ms\n'.format(coeff[0], drift_err[0]))
 
-    print(id, fn.split('/')[-1], dm, ncomp, '{:.4f} {:.4f}'.format(coeff[0], drift_err[0]), end = ' ')
+    print(id, fn.split('/')[-1], dm, ncomp, '{:.4f} {:.4f}'.format(coeff[0],
+            drift_err[0]), end = ' ')
     print([round(x, 4) for x in tdrift], [round(x, 4) for x in terr], end=' ')
     print([round(x, 2) for x in fdrift], [round(x, 2) for x in ferr])
 
-# PLotting
+# ------------------------------------------------------------------------- #
+# Plotting
 nrows, ncols = 2, 2
 fig = plt.figure(figsize=(9,6.5))
 gs = gridspec.GridSpec(nrows,ncols, hspace=0.0, wspace=0.0,
