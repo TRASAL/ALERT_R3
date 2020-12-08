@@ -103,28 +103,12 @@ fcen_chime = [
         712.51972145998
         ]
 
-# Plotting
-plt.figure(figsize=(8,5))
-plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
-
-plt.errorbar(fcen_chgbt, dr_chgbt, yerr=dr_chgbt_err, mfc=colors[2],
-             marker='^', ls='none', label='CHIME/FRB-GBT',
-             mec='k', mew=0.5, ecolor='k')
-plt.errorbar(fcen_chime, drift_rate_chime, yerr=drift_rate_chime_err, mfc=colors[1],
-             marker='s', ls='none', label='CHIME/FRB',
-             mec='k', mew=0.5, ecolor='k')
-plt.errorbar(fcen_arts, drift_rate_list, yerr=drift_rate_err,
-             mfc=colors[0], marker='o', ls='none', label='Apertif',
-             mec='k', mew=0.5, ecolor='k')
-
-
 # ------------------------------------------------------------------------- #
 # FITTING MULTI-FREQUENCY DRIFT RATE
 ## Fitting drift rate to power law
 drifts = np.array([dr_chgbt] + drift_rate_chime + drift_rate_list)
 drifts_err = np.array([dr_chgbt_err] + drift_rate_chime_err + drift_rate_err)
 freq = np.array([fcen_chgbt] + fcen_chime + fcen_arts)
-freqn = freq - np.mean(freq)
 fval = np.logspace(2,4,num=100)
 
 ## Using lmfit.fit
@@ -187,6 +171,21 @@ err_lin = [slope_err]
 sep_pow_fit = powlaw(fval, *coeff_pow)
 sep_lin_fit = linear(fval, *coeff_lin)
 
+# ------------------------------------------------------------------------- #
+# Plotting
+plt.figure(figsize=(8,5))
+plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
+
+plt.errorbar(fcen_chgbt, dr_chgbt, yerr=dr_chgbt_err, mfc=colors[2],
+             marker='^', ls='none', label='CHIME/FRB-GBT',
+             mec='k', mew=0.5, ecolor='k')
+plt.errorbar(fcen_chime, drift_rate_chime, yerr=drift_rate_chime_err, mfc=colors[1],
+             marker='s', ls='none', label='CHIME/FRB',
+             mec='k', mew=0.5, ecolor='k')
+plt.errorbar(fcen_arts, drift_rate_list, yerr=drift_rate_err,
+             mfc=colors[0], marker='o', ls='none', label='Apertif',
+             mec='k', mew=0.5, ecolor='k')
+
 plt.plot(fval, sep_pow_fit, color='k', linestyle='--', label='power-law fit', lw=1)
 plt.plot(fval, sep_lin_fit, color='k', linestyle='dotted', label='linear fit', lw=1)
 plt.axvspan(110, 190, color=colors[3], alpha=0.5, label='LOFAR')
@@ -196,7 +195,7 @@ print('linear drift rate 150 MHz:', coeff_lin[0]*150)
 
 plt.legend(loc='lower center', fontsize=10)
 plt.xlim(100,1600)
-plt.ylim(-100, 0)
+plt.ylim(-110, 0)
 plt.xlabel('Frequency (MHz)')
 plt.ylabel('Drift rate (MHz ms$^{-1}$)')
 plt_out = '/home/ines/Documents/projects/R3/arts/drift_rate/freq_drift_rate.pdf'

@@ -7,6 +7,7 @@ from astropy.time import Time, TimeDelta
 from astropy import units as u
 import datetime
 import pylab as plt
+import matplotlib as mpl
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.gridspec as gridspec
@@ -51,15 +52,10 @@ def open_json(data_json):
         #new_start_times = []
         new_durations = []
         for i, t in enumerate(start_times):
-            # new_start_times.append(t)
-            # new_durations.append(durations[i]//2)
-            # new_start_times.append(t + (durations[i]//2)/(60*60*24))
             new_durations.append(durations[i]/(3600))
-        #new_obs_startmjds_dict[k] = new_start_times
         new_obs_duration_dict[k] = new_durations
         fcen_dict[k] = (fmax + fmin)/2
     obs_duration_dict = new_obs_duration_dict
-    #obs_startmjds_dict = new_obs_startmjds_dict
 
     # Sorting dictionaries by central frequency
     fcen_dict = {k: v for k, v in sorted(fcen_dict.items(),
@@ -140,6 +136,7 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
     bin_mids = (bin_edges_obs[:-1] + bin_edges_obs[1:])/2
     phase_lst = []
     for i,k in enumerate(burst_dict.keys()):
+        print("phase list", k, len(burst_dict[k]))
         phase_lst.append(list(get_phase(np.array(burst_dict[k]), period,
                 ref_mjd=ref_mjd)))
         burst_per_phase_dict[k], _ = np.histogram(phase_lst[-1],
@@ -161,13 +158,13 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
 
     burst_hist_colors = []
     obs_hist_colors = {}
-    if 'GMRT650' in obs_duration_dict.keys():
-        fcen_dict['GMRT650'] = 1000
+    if 'uGMRT650' in obs_duration_dict.keys():
+        fcen_dict['uGMRT650'] = 1000
     for i,k in enumerate(obs_duration_dict.keys()):
         freq = np.log10(fcen_dict[k])
         col = (np.log10(max_freq)-freq)/(np.log10(max_freq)-np.log10(min_freq))
-        # c = i/len(obs_duration_dict.keys())
         color = cm(col)
+        print(k, mpl.colors.to_hex(color))
         if k in burst_dict.keys():
             burst_hist_colors.append(color)
         obs_hist_colors[k] = color
@@ -176,18 +173,20 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
             'middle': cm((np.log10(max_freq)-np.log10(500))/(np.log10(max_freq)-np.log10(min_freq))),
             'low': cm((np.log10(max_freq)-np.log10(300))/(np.log10(max_freq)-np.log10(min_freq)))
             }
-    if 'GMRT650' in obs_duration_dict.keys():
-        fcen_dict['GMRT650'] = 650
+    if 'uGMRT650' in obs_duration_dict.keys():
+        fcen_dict['uGMRT650'] = 650
 
     # PLOTTING
     fig, ax = plt.subplots(2, 1, sharex=True, figsize=(9,7),
             gridspec_kw={'height_ratios': [1,1]})
     ax1 = ax[0]
-    ax1.hist(phase_lst, bins=bin_edges_obs, stacked=True, density=False, label=burst_dict.keys(),
-             edgecolor='black', linewidth=0.5, color=burst_hist_colors)
+    yhist,xhist,_ = ax1.hist(phase_lst, bins=bin_edges_obs, stacked=True,
+            density=False, label=burst_dict.keys(),
+            edgecolor='black', linewidth=0.5, color=burst_hist_colors)
 
     ax1.set_ylabel('N. Bursts')
     ax1.set_xlim(0,1)
+    ax1.set_ylim(0, int(yhist[-1].max()*1.1))
     ax1.legend(loc=2)
 
     # ax1_right.scatter(bin_mids, duration_hist, label='Obs duration', c='k', alpha=0.5)
@@ -259,15 +258,19 @@ def make_obs_phase_plot(data_json, period, ref_mjd=58369.30, nbins=40, save=Fals
             for i in range(nbins):
                 f.write("{:.3f} {} {} {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
                         bin_mids[i], burst_tot[i],
-                        burst_per_phase_dict["CHIME"][i],
+                        burst_per_phase_dict["CHIME/FRB"][i],
                         burst_per_phase_dict["Apertif"][i],
                         burst_per_phase_dict["LOFAR"][i],
                         duration_per_phase_tot[i],
-                        duration_per_phase_dict["CHIME"][i],
+                        duration_per_phase_dict["CHIME/FRB"][i],
                         duration_per_phase_dict["Apertif"][i],
                         duration_per_phase_dict["LOFAR"][i]))
         for i,k in enumerate(burst_dict.keys()):
-            np.save(dir_out + 'phase_{}_p{:.2f}_f{:.1f}'.format(k, period,
+            if k == "CHIME/FRB":
+                inst = k.replace("/FRB", "")
+            else:
+                inst = k
+            np.save(dir_out + 'phase_{}_p{:.2f}_f{:.1f}'.format(inst, period,
                     fcen_dict[k]), [burst_dict[k], phase_lst[i]])
 
 def make_obstime_plot(data_json, period, ref_mjd=58369.30, save=False,
@@ -815,23 +818,8 @@ if __name__=='__main__':
 
     print(args.infile)
 
-    plt.rcParams.update({
-            'font.size': 12,
-            'font.family': 'serif',
-            'axes.labelsize': 12,
-            'axes.titlesize': 14,
-            'xtick.labelsize': 12,
-            'ytick.labelsize': 12,
-            'xtick.direction': 'in',
-            'ytick.direction': 'in',
-            'xtick.minor.visible': True,
-            'ytick.minor.visible': True,
-            'xtick.top': True,
-            'ytick.right': True,
-            'lines.linewidth': 0.5,
-            'lines.markersize': 5,
-            'legend.fontsize': 6,
-            'legend.loc': 'lower right'})
+    plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
+    plt.rcParams.update({'legend.fontsize': 8})
 
     if args.which == 'phase':
         make_obs_phase_plot(args.infile, args.period, ref_mjd=args.ref_mjd,
