@@ -1,5 +1,19 @@
-#!/usr/bin/env python
+#############################################################################
+#
+# Plotting LOFAR bursts
+#
+# Ines Pastor-Marazuela - 2020
+#
+#############################################################################
+#
+# Usage example:
+#
+# files=($(ls -d /home/arts/ines/R3/lofar-data/calibration/bursts/*))
+# python plot_bursts.py ${files[@]} -f 32 -t 2
+#
+#############################################################################
 
+#!/usr/bin/env python
 from __future__ import print_function
 from __future__ import division
 import os
@@ -9,12 +23,11 @@ import argparse
 import psrchive
 import numpy as np
 import matplotlib as mpl
-#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import (AutoMinorLocator, MaxNLocator, MultipleLocator)
+from matplotlib.lines import Line2D
 from astropy.time import Time
-
 from get_calib_data import get_data
 
 # --------------------------------------------------------------------------- #
@@ -23,14 +36,19 @@ from get_calib_data import get_data
 
 def waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
         files=None, snrs=None, site='LOFAR', outfile='./waterfall.pdf',
-        ncols=3, cmap='magma'):
+        ncols=3, cmap='magma', legend=False):
 
     # Plotting
     cmap = mpl.cm.get_cmap(cmap)
     nrows = int(np.ceil(len(args.files)/ncols))
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=(15,11))
     plt.style.use('/home/arts/ines/scripts/arts-analysis/paper.mplstyle')
     plt.rcParams.update({
+            'legend.fontsize': 8,
+            'legend.borderaxespad': 0,
+            'legend.frameon': False,
+            'legend.loc': 'center',
+            'lines.linewidth': 1.25,
             'xtick.minor.visible': False,
             'ytick.minor.visible': False})
     gs = gridspec.GridSpec(nrows,ncols, hspace=0.1, wspace=0.1)
@@ -57,17 +75,27 @@ def waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
         # Pulse profile
         ax1 = fig.add_subplot(gss[0, 0])
         if len(pulse.shape) == 1:
-            ax1.plot(t, pulse, 'k', lw=1)
+            ax1.plot(t, pulse, 'k')
             ax1.set_ylim(min(pulse*1.05), max(pulse*1.2))
         else:
+            if len(pulse.shape) > 1:
+                lines = [Line2D([0], [0], color='k', linewidth=1.5,
+                        linestyle='-')]
+                color_list = []
             for jj,pp in enumerate(pulse):
-                a = (pulse.shape[0]-jj)/pulse.shape[0]
+                a = 1 - (pulse.shape[0]-jj)/(pulse.shape[0])
+                color = cmap(a)
                 if jj == 0:
-                    ax1.plot(t, pp, 'k', lw=1, alpha = a)
+                    #pp = np.average(np.reshape(pp, (len(pp)//2, 2)), axis=1)
+                    #tt = np.average(np.reshape(t, (len(t)//2, 2)), axis=1)
+                    ax1.plot(t, pp, 'k')
                 else:
-                    pp = np.average(np.reshape(pp, (len(pp)//3, 3)), axis=1)
-                    tt = np.average(np.reshape(t, (len(t)//3, 3)), axis=1)
-                    ax1.plot(tt, pp, 'k', lw=1, alpha=a, ls='--')
+                    pp = np.average(np.reshape(pp, (len(pp)//8, 8)), axis=1)
+                    tt = np.average(np.reshape(t, (len(t)//8, 8)), axis=1)
+                    ax1.plot(tt, pp, color=color, ls='-')
+                    lines.append(Line2D([0], [0], color=color, linewidth=1,
+                            linestyle='-'))
+                    color_list.append(color)
             ax1.set_ylim(min(pulse[0]*1.05), max(pulse[0]*1.2))
         ax1.text(0.03, 0.90, "{0}{1:02}".format(site[0], ii+1),
                 transform=ax1.transAxes, verticalalignment='top')
@@ -85,11 +113,43 @@ def waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
         # Spectrum
         if spectrum is not None:
             ax3 = fig.add_subplot(gss[1, 1])
-            ax3.plot(spectrum, freqs, 'k', lw=1)
-            ax3.axvline(x=0, ymin=0, ymax=1e3, color='k', alpha=0.3, ls='--')
+            if isinstance(spectrum[0], np.float32):
+                ax3.plot(spectrum, freqs, 'k')
+            elif isinstance(spectrum[0], np.void):
+                ax3.plot(spectrum['S_onburst_Jy'], spectrum['freq_MHz'], 'k')
+                ax3.fill_betweenx(spectrum['freq_MHz'],
+                        x1=spectrum['S_onburst_Jy']-spectrum['S_err_Jy'],
+                        x2=spectrum['S_onburst_Jy']+spectrum['S_err_Jy'],
+                        color='k', alpha=0.3)
+                ax3.plot(spectrum['S_offburst_Jy'], spectrum['freq_MHz'],
+                        'gray', ls='--')
+                ax3.fill_betweenx(spectrum['freq_MHz'],
+                        x1=spectrum['S_offburst_Jy']-spectrum['S_err_Jy'],
+                        x2=spectrum['S_offburst_Jy']+spectrum['S_err_Jy'],
+                        color='gray', alpha=0.2)
             ax3.set_ylim(lowband, highband)
             ax3.set_yticklabels([])
             ax3.xaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
+
+            if len(pulse.shape) > 1:
+                freq_arr = [140, 130, 120]
+                if isinstance(spectrum[0], np.float32):
+                    for kk in range(len(freq_arr)-1):
+                        chtop = np.where(freqs<freq_arr[kk])[0][0]
+                        chbot = np.where(freqs<freq_arr[kk+1])[0][0]
+                        print(chbot, chtop)
+                        ax3.plot(spectrum[chtop:chbot], freqs[chtop:chbot],
+                                color=color_list[kk], marker='o')
+                elif isinstance(spectrum[0], np.void):
+                    for kk in range(len(freq_arr)-1):
+                        chtop = np.where(
+                                spectrum['freq_MHz']<freq_arr[kk])[0][-1]
+                        chbot = np.where(
+                                spectrum['freq_MHz']<freq_arr[kk+1])[0][-1]
+                        print(chbot, chtop)
+                        ax3.plot(spectrum['S_onburst_Jy'][chbot:chtop],
+                                spectrum['freq_MHz'][chbot:chtop],
+                                color=color_list[kk], marker='o')
 
 
         # ticks
@@ -106,6 +166,8 @@ def waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
             ax2.set_ylabel('Frequency (MHz)')
         else:
             ax2.set_yticklabels([])
+        for ax in (ax1, ax2):
+            ax.yaxis.set_label_coords(-0.15, 0.5)
 
         if files is not None:
             file = files[ii]
@@ -116,6 +178,22 @@ def waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
             # burst_name obsid, MJD, date, S/N, Fluence
             print("{}{:02} & {} & {:.8f} & {} & {} & \\\\".format(site[0],
                     ii+1, obsid, mjd, date, snr))
+
+    if legend:
+        leg = fig.add_subplot(gss[0, 1])
+        leg.axis('off')
+        leg.text(0.5, 0.8, '110-190 MHz', color='k', weight="bold",
+                horizontalalignment='center', verticalalignment='center',
+                transform=leg.transAxes, fontsize=8)
+        leg.text(0.5, 0.5, '130-140 MHz', color=color_list[0], weight="bold",
+                horizontalalignment='center', verticalalignment='center',
+                transform=leg.transAxes, fontsize=8)
+        leg.text(0.5, 0.2, '120-130 MHz', color=color_list[1], weight="bold",
+                horizontalalignment='center', verticalalignment='center',
+                transform=leg.transAxes, fontsize=8)
+        # labels = ['110-190 MHz', '130-140 MHz', '120-130 MHz']
+        # plt.legend(lines, labels)
+
     # Saving plot
     print('Saving plot to ', plt_out)
     plt.savefig(plt_out, pad_inches=0, bbox_inches='tight')
@@ -130,9 +208,10 @@ parser.add_argument('-f','--fscrunch', type=int, default=1,
 					help='Factor to scrunch the number of channels')
 parser.add_argument('-t','--tscrunch', type=int, default=1,
 					help='Factor to scrunch the number of time bins')
-parser.add_argument('-s','--save_npy', action='store_true', default=False,
+parser.add_argument('-S','--save_npy', action='store_true', default=False,
 					help='Save .npy arrays of the dynamic spectra')
-
+parser.add_argument('-s','--spectra', default=None, nargs='+',
+					help='Spectra files')
 
 args = parser.parse_args()
 
@@ -225,7 +304,8 @@ for ii,ff in enumerate(args.files):
                 + lofar_info['t_frb'][jj]/(24*3600))
         snr = lofar_info['SNR'][jj]
         dm = 349.0
-        duration = 400
+        duration = 501.8 #400
+        burst_id = 'L' + ff.split('.')[0].split('_frb')[1]
         print(mjd, snr, dm)
 
         # On-burst-window:
@@ -285,11 +365,13 @@ for ii,ff in enumerate(args.files):
         binf = np.where(t>140)[0][0]
 
         # Spectrum
-        spectrum = np.mean(waterfall[..., bini:binf], axis=1)/1000. #Jy
-        spectrum = spectrum*weights[0]
-        # print(spectrum.shape, weights.shape)
-        # spectrum = np.hstack((spectrum[0,:], spectrum[1,:], spectrum[2,:]))
-
+        if args.spectra is None:
+            spectrum = np.mean(waterfall[..., bini:binf], axis=1)/1000. #Jy
+            spectrum = spectrum*weights[0]
+            # spectrum = np.hstack((spectrum[0,:], spectrum[1,:], spectrum[2,:]))
+        else:
+            spec_file = [s for s in args.spectra if burst_id in s]
+            spectrum = np.genfromtxt(spec_file[0], names=True)
 
         # Other pulse properties
         centfreq = wf.get_centre_frequency()
@@ -300,9 +382,9 @@ for ii,ff in enumerate(args.files):
         freqs = np.linspace(lowband, highband, num=nchan)
         freqs = np.flipud(freqs)
 
-        if jj in [5, 6]:
-            print("Working on L06")
-            freq_arr = [150, 140, 130, 120]
+        if burst_id in ['L01', 'L03', 'L06']:
+            print("Working on L0{}".format(jj+1))
+            freq_arr = [140, 130, 120]
             for kk in range(len(freq_arr)-1):
                 chtop = np.where(freqs<freq_arr[kk])[0][0]
                 chbot = np.where(freqs<freq_arr[kk+1])[0][0]
@@ -339,4 +421,4 @@ snrs = [s for m, s in sorted(zip(mjds, snrs))]
 mjds.sort()
 
 waterplotter(pulses, spectra, waterfalls, mjds, times, frequencies,
-        outfile=plt_out, files=files, snrs=snrs, site='LOFAR')
+        outfile=plt_out, files=files, snrs=snrs, site='LOFAR', legend=True)
