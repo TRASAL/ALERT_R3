@@ -65,7 +65,7 @@ for ii,burst in burst_data.iterrows():
 
 
 dr_arts = np.mean(drift_rate_list)
-dr_arts_err = np.std(drift_rate_list)
+dr_arts_err = np.std(drift_rate_list) / np.sqrt(len(drift_rate_list))
 print("Apertif {:.4f}+-{:.4f} MHz/ms".format(dr_arts, dr_arts_err))
 
 
@@ -91,7 +91,7 @@ drift_rate_chime = [
 drift_rate_chime_err = [np.sqrt(np.abs(dr)) for dr in drift_rate_chime]
 
 dr_chime = np.mean(drift_rate_chime)
-dr_chime_err = np.std(drift_rate_chime)
+dr_chime_err = np.std(drift_rate_chime) / np.sqrt(len(drift_rate_chime))
 print("CHIME {:.4f}+-{:.4f} MHz/ms".format(dr_chime, dr_chime_err))
 
 fcen_chime = [
@@ -116,7 +116,7 @@ plmodel = Model(powlaw)
 params = Parameters()
 params.add('amplitude', value=-0.6, max=0.)
 params.add('exponent', value=0.5, min=0.)
-plfit = plmodel.fit(drifts, params, x=freq, weights=1/drifts_err)
+plfit = plmodel.fit(drifts, params, x=freq) #, weights=1/drifts_err)
 print("\nPOWER LAW FIT\n", plfit.fit_report())
 
 # Using lmfit.minimize
@@ -145,7 +145,7 @@ err_pow = [amp_err, exp_err]
 lmodel = Model(linear)
 params = Parameters()
 params.add('slope', value=-0.02, max=0.)
-lfit = lmodel.fit(drifts, params, x=freq, weights=1/drifts_err)
+lfit = lmodel.fit(drifts, params, x=freq) #, weights=1/drifts_err)
 slope = lfit.params.get("slope").value
 slope_err = lfit.params.get("slope").stderr
 print("\nLINEAR FIT\n", lfit.fit_report())
@@ -179,7 +179,7 @@ plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
 plt.errorbar(fcen_chgbt, dr_chgbt, yerr=dr_chgbt_err, mfc=colors[2],
              marker='^', ls='none', label='CHIME/FRB-GBT',
              mec='k', mew=0.5, ecolor='k')
-plt.errorbar(fcen_chime, drift_rate_chime, yerr=drift_rate_chime_err, mfc=colors[1],
+plt.errorbar(fcen_chime, drift_rate_chime, yerr=0.0, mfc=colors[1],
              marker='s', ls='none', label='CHIME/FRB',
              mec='k', mew=0.5, ecolor='k')
 plt.errorbar(fcen_arts, drift_rate_list, yerr=drift_rate_err,

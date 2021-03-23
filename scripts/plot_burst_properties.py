@@ -26,25 +26,6 @@ cycmax = max(burst_data['cycle'])
 ncycles = cycmax - cycmin
 
 # Plotting
-# plt.rcParams.update({
-#         'font.size': 12,
-#         'font.family': 'serif',
-#         'axes.labelsize': 12,
-#         'axes.titlesize': 14,
-#         'xtick.labelsize': 12,
-#         'ytick.labelsize': 12,
-#         'xtick.direction': 'in',
-#         'ytick.direction': 'in',
-#         'xtick.minor.visible': True,
-#         'ytick.minor.visible': True,
-#         'xtick.top': True,
-#         'ytick.right': True,
-#         'lines.linewidth': 0.5,
-#         'lines.markersize': 5,
-#         'legend.fontsize': 12,
-#         # 'legend.borderaxespad': 0,
-#         # 'legend.frameon': True,
-#         'legend.loc': 'upper right'})
 plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
 
 
@@ -54,13 +35,18 @@ properties = ['struct_opt_dm', 'drift_rate', 'fluence_Jyms', 'pa_deg']
 errors = ['struct_opt_dm_err', 'drift_rate_err', 'fluence_err', 'pa_err']
 ylabel = ['DM (pc cm$^{-3}$)', 'Drift rate (MHz ms$^{-1}$)',
         'Fluence (Jy ms)', 'PA (deg)']
-ylim = [(346.5, 351.5), (-120, 0), (-2, 70), (-10, 50)]
+ylim = [(346.5, 351.5), (-120, 0), (-2, 70), (-15, 55)]
+# properties = ['pa_deg']
+# errors = ['pa_err']
+# ylabel = ['PA (deg)']
+# ylim = [(-15, 55)]
 plt_cycles = np.unique(burst_data['cycle'])
 plt_cycles.sort()
 # plt_cycles = [i for i,c in enumerate(plt_cycles)]
 # print(plt_cycles)
 
 fig = plt.figure(figsize=(8,13))
+#fig = plt.figure(figsize=(7,6))
 gs = gridspec.GridSpec(len(properties),1, hspace=0.01, wspace=0.01)
 
 #colors = ['#577590', '#43aa8b', '#90be6d', '#f9c74f', '#f8961e', '#f3722c', '#f94144']
@@ -88,6 +74,9 @@ for ii,k in enumerate(properties):
         ax.hlines(348.75, 0, 1, color='gray', linestyle='--')
         ax.text(0.535, 348.8, '348.75 pc cm$^{-3}$', horizontalalignment='left')
     ax.set_ylabel(ylabel[ii])
+    ax.yaxis.set_label_coords(-0.15, 0.5)
+    ax.text(0.02, 0.9, chr(ord("a")+ii),
+            transform=ax.transAxes, weight='bold')
     ax.set_xlim(0.36,0.59)
     ax.set_ylim(ylim[ii])
     #ax.set_xlim(0.15,0.4)

@@ -27,41 +27,59 @@ with open(infile, 'r') as f:
 
 pminsearch = 0.03
 pmaxsearch = 20
+nbins=10000
+ts_bin_width=1e-4
+pres=1e-2
+
 # pminsearch = 1.57
 # pmaxsearch = 65
-pres = 10000
+# nbins = 10000
+# ts_bin_width=1e-4
+# pres=1e-5
 
 # Output files
 outdir = '/home/ines/Documents/projects/R3/periodicity/periodograms/'
 plt_out = outdir + 'periodograms.pdf'
 
-telescope_groups = ['all', ['Apertif'], ['CHIME'], ['Apertif', 'CHIME']]
+telescope_groups = ['all', ['Apertif'], ['CHIME/FRB'], ['Apertif', 'CHIME/FRB']]
 periodogram_names = ['all', 'Apertif', 'CHIME', 'CHIME_Apertif']
+
+best_periods = {
+            "all": [
+                    "$16.34^{+0.11}_{-0.15}$",
+                    "$16.29^{+0.16}_{-0.18}$",
+                    "$16.30^{+0.20}_{-0.24}$"
+                    ],
+            "Apertif": [
+                    "$16.38^{+3.56}_{-3.69}$",
+                    "$16.41^{+2.18}_{-1.70}$",
+                    "$16.35^{+0.47}_{-0.31}$"
+                    ],
+            "CHIME": [
+                    "$16.36^{+0.07}_{-0.16}$",
+                    "$16.31^{+0.16}_{-0.18}$",
+                    "$16.35^{+0.10}_{-0.14}$"
+                    ],
+            "CHIME_Apertif": [
+                    "$16.28^{+0.17}_{-0.11}$",
+                    "$16.29^{+0.15}_{-0.17}$",
+                    "$16.30^{+0.13}_{-0.16}$"
+                    ]
+            }
+
+n_bursts = {
+        "all": 154,
+        "Apertif": 54,
+        "CHIME": 57,
+        "CHIME_Apertif": 111
+        }
 #telescopes = ['Apertif', 'CHIME']
 #telescopes = 'all'
 fig = plt.figure(figsize=(13,10))
 gs = gridspec.GridSpec(3,len(telescope_groups), hspace=0.05, wspace=0.05)
 colors = ['#577590', '#90be6d', '#f8961e', '#f94144']
+plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
 
-plt.rcParams.update({
-        'font.size': 12,
-        'font.family': 'serif',
-        'axes.labelsize': 12,
-        'axes.titlesize': 14,
-        'xtick.labelsize': 12,
-        'ytick.labelsize': 12,
-        'xtick.direction': 'in',
-        'ytick.direction': 'in',
-        'xtick.minor.visible': True,
-        'ytick.minor.visible': True,
-        'xtick.top': True,
-        'ytick.right': True,
-        'lines.linewidth': 0.5,
-        'lines.markersize': 5,
-        'legend.fontsize': 12,
-        # 'legend.borderaxespad': 0,
-        # 'legend.frameon': True,
-        'legend.loc': 'upper right'})
 
 jj = 1
 for ii,telescopes in enumerate(telescope_groups):
@@ -104,14 +122,16 @@ for ii,telescopes in enumerate(telescope_groups):
     # Making periodograms
     #######################
     fwhm = 0.2
-    title = periodogram_names[ii].replace('_', '+').upper()
+    title = periodogram_names[ii].replace('_', '+').replace('CHIME',
+            'CHIME/FRB').upper()
+            # + " - {}".format(n_bursts[periodogram_names[ii]])
     print("{} & {} &".format(title, len(bursts)), end=' ')
     #--------------------------------
     # Pearson chi-square test (PR3)
     #--------------------------------
-    print("# PR3 ",telescopes)
+    # print("# PR3 ",telescopes)
     # rch, p_pr3 = pr3_search(bursts=bursts, obs_mjds=startmjds,
-    #         obs_durations=durations, pmin=pminsearch, pmax=pmaxsearch, pres=pres)
+    #         obs_durations=durations, pmin=pminsearch, pmax=pmaxsearch, pres=nbins)
     # np.save(outdir + periodogram_names[ii] + '_period_pr3', [rch, p_pr3])
     # Opening existing periodograms
     data = np.load(outdir + periodogram_names[ii] + '_period_pr3.npy')
@@ -140,11 +160,11 @@ for ii,telescopes in enumerate(telescope_groups):
     #-----------------------------------------------
     # Narrowest folded profile, Rajwade+2020 (R20)
     #-----------------------------------------------
-    print("# R20 ",telescopes)
+    # print("# R20 ",telescopes)
     # bursts = np.sort(bursts - np.min(bursts))
     # unique_days = np.unique(np.round(bursts))
     # cont_frac, p_r20 = riptide_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
-    #         ts_bin_width=1e-6)
+    #         ts_bin_width=ts_bin_width)
     # np.save(outdir + periodogram_names[ii] + '_period_r20', [cont_frac, p_r20])
     # Opening data
     data = np.load(outdir + periodogram_names[ii] + '_period_r20.npy')
@@ -174,9 +194,9 @@ for ii,telescopes in enumerate(telescope_groups):
     # QMI based on Euclidean distance for periodogram (P4J)
     #--------------------------------------------------------
     print("# P4J ",telescopes)
-    # periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
-    #         plot=False, save=False, mjd_err=0.1, pres=1e-2)
-    # np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
+    periodogram, p_p4j = p4j_search(bursts, pmin=pminsearch, pmax=pmaxsearch,
+            plot=False, save=False, mjd_err=0.1, pres=pres)
+    np.save(outdir + periodogram_names[ii] + '_period_p4j', [periodogram,p_p4j])
     # Opening data
     data = np.load(outdir + periodogram_names[ii] + '_period_p4j.npy')
     periodogram, p_p4j = np.flip(data[0]), np.flip(data[1])
@@ -224,8 +244,14 @@ for ii,telescopes in enumerate(telescope_groups):
         ax.set_xlim(1.57, 65)
         ax.set_xlim(pminsearch, pmaxsearch)
         ax.set_xscale('log')
+        ax.yaxis.set_label_coords(-0.25, 0.5)
+        # Plot index
         ax.text(0.9, 0.9, chr(ord('@')+kk),
+                transform=ax.transAxes, weight='bold')
+        # Best period
+        t = ax.text(0.05, 0.9, best_periods[periodogram_names[ii]][jj],
                 transform=ax.transAxes)
+        t.set_bbox(dict(facecolor='w', alpha=0.6, edgecolor='w'))
         # ax.vlines(16.35, -1,50, lw=1, color='gray')
         # ax.vlines(8.175, -1,50, linestyle='--', lw=1, color='gray')
         jj += 1

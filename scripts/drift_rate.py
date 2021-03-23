@@ -1,8 +1,8 @@
 import math
 import glob, sys
 import numpy as np
-import uncertainties.unumpy as unp
 import pandas as pd
+import argparse
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -10,7 +10,6 @@ from scipy.optimize import curve_fit
 from scipy.stats import norm
 from lmfit import Model, Parameters
 import tools
-from frbpa.utils import get_phase, get_cycle
 from astropy.time import Time
 
 # Defining functions
@@ -105,7 +104,15 @@ file_info = np.genfromtxt(fname, names=True,
         '<U41', '<U41', '<U41'))
 print(file_info.dtype.names)
 
-id = sys.argv[1]
+parser = argparse.ArgumentParser(description='Commands for tauscat code')
+parser.add_argument('-b', '--burst', type=str,
+					help='The burst to plot')
+parser.add_argument('-l','--label', type=str, default=None,
+					help='Plot label')
+
+args = parser.parse_args()
+
+id = args.burst
 ref_dm = 348.75
 burst = burst_data.loc[burst_data['paper_name'] == id]
 
@@ -113,12 +120,12 @@ burst = burst_data.loc[burst_data['paper_name'] == id]
 data_path = '/home/ines/Documents/projects/R3/arts/drift_rate/iquv_npy/'
 mjd = burst['detection_mjd'].values[0]
 print(data_path + "*{:.6f}*".format(mjd))
-fn = glob.glob(data_path + "*{:.6f}*".format(mjd))[0] #file_info['file_'][ii]
+fn = glob.glob(data_path + "*{:.6f}*.npy".format(mjd))[0] #file_info['file_'][ii]
 print(fn)
 dm = 348.75 #file_info['dm'][ii]
 ncomp = int(burst['ncomp'].values[0]) #file_info['ncomp'][ii]
 
-pmax=99.5
+pmax=99.9
 pmin=1.0
 if ncomp == 1:
     t0 = 0.
@@ -136,8 +143,8 @@ if id == 'A17':
           1.3, 1., 0.3,
           0.3, 2., 0.15,
           0.15, 2.75, 0.2]
-    pmax=99.9
-    pmin=1.0
+    # pmax=99.9
+    # pmin=1.0
 if id == 'A53':
     p0 = [.2, -11, 0.1,
       .4, -8.4, 0.1,
@@ -151,8 +158,11 @@ if id == 'A53':
       .4, 11.5, .15,
       .2, 13, .15,
       .1, 14.5, .15]
-    pmax = 99.9
-    pmin = 1.0
+    # pmax = 99.9
+    # pmin = 1.0
+# ncomp = 2
+# p0 = [0.9, -.6, .3,
+#     1.1, 0.1, .1]
 
 print("Number of components", ncomp)
 print("Initial conditions:", p0)
@@ -181,8 +191,8 @@ tval = np.arange(-nsamp/2, nsamp/2) * tsamp
 fval = np.arange(fmin, fmax, fsamp)
 
 pulse = np.mean(waterfall, axis=0)
-if id == 'A17':
-    pulse += 0.05
+# if id == 'A17':
+#     pulse += 0.05
 
 # Plotting dynamic spectrum
 fig = plt.figure(figsize=(9,9))
@@ -312,6 +322,8 @@ err_s = []
 for ii,ss in enumerate(spec):
     # p0 is the initial guess for the fitting coefficients (A, mu and sigma above)
     f0 = fval[np.argmax(ss)]
+    if id == 'A10' and ii == 0:
+        f0 = 1450.
     s0 = [.5, f0, 100.]
     print("Initial spec params", s0)
     # plt.plot(fval, ss)
@@ -358,9 +370,17 @@ if ncomp > 1:
 # ------------------------------------------------------------------------- #
 # Plotting
 nrows, ncols = 2, 2
-fig = plt.figure(figsize=(9,6.5))
-gs = gridspec.GridSpec(nrows,ncols, hspace=0.0, wspace=0.0,
-        height_ratios=[1,3], width_ratios=[6,1])
+if id != 'A53':
+    fig = plt.figure(figsize=(9,6.5))
+    gs = gridspec.GridSpec(nrows,ncols, hspace=0.0, wspace=0.0,
+            height_ratios=[1,3], width_ratios=[6,1])
+else:
+    fig = plt.figure(figsize=(18,6.5))
+    gs = gridspec.GridSpec(nrows,ncols, hspace=0.0, wspace=0.0,
+            height_ratios=[1,3], width_ratios=[6,1])
+# fig = plt.figure(figsize=(9,6.5))
+# gs = gridspec.GridSpec(nrows,ncols, hspace=0.0, wspace=0.0,
+#         height_ratios=[1,3], width_ratios=[6,1])
 colors = ['#577590', '#90be6d', '#f9c74f', '#f3722c', '#f94144']
 plt.style.use('/home/ines/.config/matplotlib/stylelib/paper.mplstyle')
 
@@ -407,6 +427,12 @@ if ncomp > 1:
 
 ax1.text(0.05, 0.95, id, horizontalalignment='left',
         verticalalignment='top', transform=ax1.transAxes)
+if args.label is not None:
+    x0 = -0.1
+    if id == 'A53':
+        x0 = -0.05
+    ax1.text(x0, 0.95, args.label, verticalalignment='top',
+            transform=ax1.transAxes, weight='bold')
 #ax3.set_xticks([])
 #ax3.set_yticks([])
 if id != 'A53':

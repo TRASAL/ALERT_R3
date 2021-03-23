@@ -200,6 +200,7 @@ plt.ylabel('Fluence (Jy ms)')
 plt.xlabel('ID')
 #plt.show()
 
+# ------------------------------------------------------------------------- #
 # Cumulative distribution function
 ## ARTS
 csvname = '/home/ines/Documents/projects/R3/arts/arts_r3_properties.csv'
@@ -224,11 +225,8 @@ cumulative_snr = np.array([len(arts_snr)-i for i in range(len(arts_fluence))])
 csvname = '/home/ines/Documents/projects/R3/lofar/lofar_r3_properties.csv'
 burst_data = np.genfromtxt(csvname, delimiter=',', names=True)
 
-Tobs_lofar = 59.0
+Tobs_lofar = 48.3
 duty_cycle_lofar = 1.0
-# Use the lofar data from the Paper's table
-#lofar_fluence = np.array([69, 33, 76, 176, 103, 272, 267, 197, 100])
-#lofar_snr = np.array([8.7, 7.3, 9.5, 18.9, 13.7, 29.4, 35.1, 23.5, 12.5])
 lofar_fluence = burst_data['fluence_Jyms']
 lofar_snr = burst_data['detection_snr']
 
@@ -276,50 +274,6 @@ ax1.set_yscale('log')
 ax1.set_xlim(7e-1,400)
 ax1.set_ylim(1e-3, 1)
 
-# fl_hi, fl_md, fl_lo = [], [], []
-# cm_hi, cm_md, cm_lo = [], [], []
-# br_low = 2.7 # Jy ms
-# br_high = 5.3 # Jy ms
-
-# for j,f in enumerate(arts_fluence):
-#     if f < br_low: #1.4:
-#         fl_lo.append(f)
-#         cm_lo.append(cumulative_n[j])
-#     elif f > br_high:
-#         fl_hi.append(f)
-#         cm_hi.append(cumulative_n[j])
-#     else:
-#         fl_md.append(f)
-#         cm_md.append(cumulative_n[j])
-
-#print(fl_md, cm_md)
-
-# Fitting
-# p0=[-2.3, 100]
-# coeff_hi, var_hi = curve_fit(func_powerlaw, fl_hi, cm_hi, p0=p0,
-#         sigma=np.sqrt(cm_hi))
-# print("High fluence pl fit", coeff_hi)
-# ax1.plot(np.logspace(-1,2),
-#         func_powerlaw(np.logspace(-1,2), *coeff_hi)/arts_obs_time,
-#         color='k', alpha=0.4, linestyle='--',
-#         label='pl > {:.1f} Jy ms'.format(br_high))
-#
-# coeff_md, var_md = curve_fit(func_powerlaw, fl_md, cm_md, p0=p0,
-#         sigma=np.sqrt(cm_md))
-# print("Medium fluence pl fit", coeff_md)
-# ax1.plot(np.logspace(-1,2),
-#         func_powerlaw(np.logspace(-1,2), *coeff_md)/arts_obs_time,
-#         color='k', alpha=0.4, linestyle='dotted',
-#         label='pl {:.1f}-{:.1f} Jy ms'.format(br_low, br_high))
-#
-# coeff_lo, var_lo = curve_fit(func_powerlaw, fl_lo, cm_lo, p0=p0,
-#         sigma=np.sqrt(cm_lo))
-# print("Low fluence pl fit", coeff_lo)
-# ax1.plot(np.logspace(-1,2),
-#         func_powerlaw(np.logspace(-1,2), *coeff_lo)/arts_obs_time,
-#         color='k', alpha=0.4, linestyle='-.',
-#         label='pl < {:.1f} Jy ms'.format(br_low))
-
 # FITTING CDF
 # Fitting Apertif to 2 times broken power law
 c, x1, x2, a1, a2, a3 = 100, 2.7, 3.5, -0.17, -0.58, -1.38
@@ -346,9 +300,7 @@ xl = coeff[1]
 print("LOFAR\n", coeff, "\n", np.sqrt(np.diag(var)))
 
 # Dividing Apertif phase range
-#phase_range = [0.36, 0.44, 0.47, 0.49, 0.52, 0.6]
 phase_range = [0.35, 0.46, 0.51, 0.62]
-#color_test=['#95b88c', '#538d8c', '#2a3857', '#965da6', '#d685a4', 'C6', 'C7']
 color_test = ['#98C56D', '#34835A', '#17343A']
 for i,p in enumerate(phase_range[:-1]):
     c = color_test[i]
@@ -379,6 +331,7 @@ ax1.axvline(xl, ymin=0, ymax=1e3, zorder=0, color='k', ls=(0, (5, 1)),
         alpha=0.3)
 
 plt_fl = '/home/ines/Documents/projects/R3/arts/fluxcal/cdf_fluence.pdf'
+#plt_fl = '/home/ines/Documents/PhD/meetings/20210303-Astrolunch_talk/figs/cdf_fluence.png'
 #plt_fl = 'cdf_fluence.pdf'
 print("Saving figure", plt_fl)
 plt.savefig(plt_fl, pad_inches=0, bbox_inches='tight', dpi=200)
